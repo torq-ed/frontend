@@ -1,10 +1,13 @@
 import { Noto_Sans } from "next/font/google";
-import { ThemeProvider } from "@/components/theme-provider"
+import { ThemeProvider } from "@/components/theme-provider";
+import { SessionProvider } from "@/components/session-provider";
+import { Navbar } from "@/components/navbar";
 import "./globals.css";
 
 const notoSans = Noto_Sans({
-    variable: "--font-noto-sans",
     subsets: ["latin"],
+    weight: ["100", "200", "300", "400", "500", "600", "700", "800", "900"],
+    variable: "--font-noto-sans",
 });
 
 export const metadata = {
@@ -43,7 +46,12 @@ export default function RootLayout({ children }) {
         <html lang="en" suppressHydrationWarning>
             <body className={`${notoSans.variable} antialiased`}>
                 <ThemeProvider attribute="class" defaultTheme="system" enableSystem disableTransitionOnChange>
-                    {children}
+                    <SessionProvider>
+                        <Navbar />
+                        <main>
+                            {children}
+                        </main>
+                    </SessionProvider>
                 </ThemeProvider>
             </body>
         </html>
