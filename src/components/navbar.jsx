@@ -54,7 +54,7 @@ export function Navbar() {
                                 variant={pathname === "/dashboard" ? "default" : "ghost"}
                                 size="sm" 
                                 className={`rounded-full px-4 ${
-                                  pathname === "/dashboard" 
+                                    pathname === "/dashboard" 
                                     ? "bg-primary text-primary-foreground"
                                     : "hover:bg-primary/10"
                                 }`}
@@ -66,7 +66,7 @@ export function Navbar() {
                                 variant={pathname === "/activity" ? "default" : "ghost"}
                                 size="sm" 
                                 className={`rounded-full px-4 ${
-                                  pathname === "/activity" 
+                                    pathname === "/activity" 
                                     ? "bg-primary text-primary-foreground"
                                     : "hover:bg-primary/10"
                                 }`}
@@ -153,28 +153,8 @@ function MobileMenu({ isSignedIn }) {
             
             {isOpen && (
                 <div className="absolute top-16 right-4 bg-background/80 backdrop-blur-xl rounded-lg shadow-[0_8px_30px_rgb(0,0,0,0.12)] dark:shadow-[0_8px_30px_rgba(0,0,0,0.3)] p-4 min-w-[200px] animate-in fade-in slide-in-from-top-5">
-                    <ul className="flex flex-col space-y-2">
-                        {[
-                            { href: '/', label: 'Home' },
-                            { href: '/about', label: 'About' },
-                            { href: '/features', label: 'Features' },
-                            { href: '/contact', label: 'Contact' },
-                        ].map((link) => (
-                            <li key={link.href}>
-                                <Link 
-                                    href={link.href}
-                                    className={`block px-4 py-2 rounded-md transition-colors duration-300
-                                        ${pathname === link.href 
-                                            ? 'bg-primary/20 text-primary' 
-                                            : 'hover:bg-primary/10 hover:text-primary'
-                                        }`}
-                                >
-                                    {link.label}
-                                </Link>
-                            </li>
-                        ))}
-                        
-                        <li className="pt-2 mt-2 border-t border-border/50">
+                    <ul className="flex flex-col">
+                        <li className="pt-2 mt-2">
                             {isSignedIn ? (
                                 <>
                                     <Link 
@@ -197,12 +177,32 @@ function MobileMenu({ isSignedIn }) {
                                     </button>
                                 </>
                             ) : (
+                                <>
+                                <Link 
+                                    href="/about" 
+                                    className="block px-4 py-2 rounded-md bg-primary text-primary-foreground hover:bg-primary/90 transition-colors duration-300"
+                                >
+                                    About
+                                </Link>
+                                <Link 
+                                    href="/features" 
+                                    className="block px-4 py-2 rounded-md bg-primary text-primary-foreground hover:bg-primary/90 transition-colors duration-300"
+                                >
+                                    Features
+                                </Link>
+                                <Link 
+                                    href="/contact" 
+                                    className="block px-4 py-2 rounded-md bg-primary text-primary-foreground hover:bg-primary/90 transition-colors duration-300"
+                                >
+                                    Contact
+                                </Link>
                                 <Link 
                                     href="/signin" 
-                                    className="block px-4 py-2 rounded-md bg-primary text-primary-foreground hover:bg-primary/90 transition-colors duration-300 text-center"
+                                    className="block px-4 py-2 rounded-md bg-primary text-primary-foreground hover:bg-primary/90 transition-colors duration-300"
                                 >
                                     Sign In
                                 </Link>
+                                </>
                             )}
                         </li>
                     </ul>
