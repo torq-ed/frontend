@@ -46,54 +46,30 @@ export function Navbar() {
                     </span>
                 </Link>
 
-                {/* Navigation Links */}
-                {/* <nav className="hidden md:block">
-                    <ul className="flex items-center space-x-1">
-                        {[
-                            { href: '/about', label: 'About' },
-                            { href: '/features', label: 'Features' },
-                            { href: '/contact', label: 'Contact' },
-                            { href: '/signin', label: 'Sign In' },
-                        ].map((link) => (
-                            <li key={link.href}>
-                                <Link 
-                                    href={link.href}
-                                    className={`relative px-4 py-2 rounded-full mx-1 font-medium transition-all duration-300 
-                                        ${pathname === link.href 
-                                            ? 'text-primary' 
-                                            : 'text-foreground/70 hover:text-primary'
-                                        }
-                                        after:absolute after:bottom-0 after:left-1/2 after:-translate-x-1/2 
-                                        after:w-0 hover:after:w-1/2 after:h-0.5 after:bg-primary 
-                                        after:transition-all after:duration-300
-                                        flex items-center justify-center`}
-                                >
-                                    {link.label}
-                                    {pathname === link.href && (
-                                        <span className="absolute bottom-0 left-1/2 transform -translate-x-1/2 w-1/2 h-0.5 bg-primary" />
-                                    )}
-                                </Link>
-                            </li>
-                        ))}
-                    </ul>
-                </nav> */}
-
                 {/* Authentication Buttons */}
                 <div className="hidden md:flex items-center space-x-3">
                     {isSignedIn ? (
                         <>
                             <Button 
-                                variant="ghost" 
+                                variant={pathname === "/dashboard" ? "default" : "ghost"}
                                 size="sm" 
-                                className="rounded-full hover:bg-primary/10 px-4"
+                                className={`rounded-full px-4 ${
+                                  pathname === "/dashboard" 
+                                    ? "bg-primary text-primary-foreground"
+                                    : "hover:bg-primary/10"
+                                }`}
                                 asChild
                             >
                                 <Link href="/dashboard">Dashboard</Link>
                             </Button>
                             <Button 
-                                variant="ghost" 
+                                variant={pathname === "/activity" ? "default" : "ghost"}
                                 size="sm" 
-                                className="rounded-full hover:bg-primary/10 px-4"
+                                className={`rounded-full px-4 ${
+                                  pathname === "/activity" 
+                                    ? "bg-primary text-primary-foreground"
+                                    : "hover:bg-primary/10"
+                                }`}
                                 asChild
                             >
                                 <Link href="/activity">Activity</Link>
