@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import Image from "next/image";
+import Link from "next/link"; // Import Link
 
 export default function Dashboard() {
     const { data: session, status } = useSession();
@@ -95,20 +96,26 @@ export default function Dashboard() {
 
                     {/* Recommendations */}
                     <div className="bg-card rounded-lg shadow-md p-4 sm:p-6">
-                        <h2 className="text-lg sm:text-xl font-semibold mb-3 sm:mb-4">Recommended For You</h2>
+                        <h2 className="text-lg sm:text-xl font-semibold mb-3 sm:mb-4">Get Started</h2>
                         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
-                            <div className="border border-border rounded-lg p-3 sm:p-4 hover:border-primary/50 hover:shadow-md transition-all duration-300">
-                                <h3 className="font-medium text-sm sm:text-base">Complete Your Profile</h3>
-                                <p className="text-xs sm:text-sm text-foreground/70 mt-1">Enhance your experience by adding more details to your profile.</p>
-                            </div>
-                            <div className="border border-border rounded-lg p-3 sm:p-4 hover:border-primary/50 hover:shadow-md transition-all duration-300">
-                                <h3 className="font-medium text-sm sm:text-base">Explore Features</h3>
-                                <p className="text-xs sm:text-sm text-foreground/70 mt-1">Discover all the tools and features available to you.</p>
-                            </div>
-                            <div className="border border-border rounded-lg p-3 sm:p-4 hover:border-primary/50 hover:shadow-md transition-all duration-300 sm:col-span-2 lg:col-span-1">
-                                <h3 className="font-medium text-sm sm:text-base">Connect Accounts</h3>
-                                <p className="text-xs sm:text-sm text-foreground/70 mt-1">Link your other accounts for a more integrated experience.</p>
-                            </div>
+                            <Link href="/search" className="block"> 
+                                <div className="border border-border rounded-lg p-3 sm:p-4 h-full hover:border-primary/50 hover:shadow-md transition-all duration-300">
+                                    <h3 className="font-medium text-sm sm:text-base">Search 47k+ Questions</h3>
+                                    <p className="text-xs sm:text-sm text-foreground/70 mt-1">Find specific questions from a vast library.</p>
+                                </div>
+                            </Link>
+                            <Link href="/generate" className="block"> 
+                                <div className="border border-border rounded-lg p-3 sm:p-4 h-full hover:border-primary/50 hover:shadow-md transition-all duration-300">
+                                    <h3 className="font-medium text-sm sm:text-base">Generate Personalized Tests</h3>
+                                    <p className="text-xs sm:text-sm text-foreground/70 mt-1">Create custom tests based on your needs.</p>
+                                </div>
+                            </Link>
+                            <Link href="/ai" className="block"> 
+                                <div className="border border-border rounded-lg p-3 sm:p-4 h-full hover:border-primary/50 hover:shadow-md transition-all duration-300">
+                                    <h3 className="font-medium text-sm sm:text-base">Ask Doubts to TorqAI</h3>
+                                    <p className="text-xs sm:text-sm text-foreground/70 mt-1">Get instant help and clarifications from our AI.</p>
+                                </div>
+                            </Link>
                         </div>
                     </div>
                 </div>
