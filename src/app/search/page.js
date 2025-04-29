@@ -822,10 +822,9 @@ export default function Search() {
 												{result.paper_name || 'N/A'}
 											</span>
 											<span className={`
-												bg-${result.level === 1 ? 'teal' : result.level === 2 ? 'orange' : 'red'}-100 
-												text-${result.level === 1 ? 'teal' : result.level === 2 ? 'orange' : 'red'}-800 
-												dark:bg-${result.level === 1 ? 'teal' : result.level === 2 ? 'orange' : 'red'}-900 
-												dark:text-${result.level === 1 ? 'teal' : result.level === 2 ? 'orange' : 'red'}-300 
+												${result.level === 1 ? 'bg-teal-100 text-teal-800 dark:bg-teal-900 dark:text-teal-300' 
+												: result.level === 2 ? 'bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-300' 
+																	: 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300'}
 												text-xs px-2 py-0.5 rounded-full`}>
 												{result.level === 1 ? "Easy" : result.level === 2 ? "Medium" : "Hard"}
 											</span>

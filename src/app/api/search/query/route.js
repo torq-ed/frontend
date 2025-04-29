@@ -47,7 +47,7 @@ export async function GET(request) {
 		}
 
 		if (paperIds.length > 0) {
-			queryFilter.paper = { $in: paperIds };
+			queryFilter.paper_id = { $in: paperIds };
 		}
 
 		const totalCount = await collection.countDocuments(queryFilter);
@@ -77,7 +77,8 @@ export async function GET(request) {
 		const examIdsToFetch = [...new Set(data.map(item => item.exam))];
 		const subjectIdsToFetch = [...new Set(data.map(item => item.subject))];
 		const chapterIdsToFetch = [...new Set(data.map(item => item.chapter))];
-		let paperIdsToFetch = [...new Set(data.map(item => Object.keys(item.paper_id[0])[0]))];
+		const paperIdsToFetch = [...new Set(data.map(item => item.paper_id))];
+
 
 		const exams = await examsCollection.find({ _id: { $in: examIdsToFetch } }, { projection: { _id: 1, name: 1 } }).toArray();
 		const subjects = await subjectsCollection.find({ _id: { $in: subjectIdsToFetch } }, { projection: { _id: 1, name: 1 } }).toArray();
@@ -88,7 +89,7 @@ export async function GET(request) {
 			const exam = exams.find(exam => exam._id.toString() === item.exam.toString());
 			const subject = subjects.find(subject => subject._id.toString() === item.subject.toString());
 			const chapter = chapters.find(chapter => chapter._id.toString() === item.chapter.toString());
-			const paper = papers.find(paper => paper._id.toString() === Object.keys(item.paper_id[0])[0]);
+			const paper = papers.find(paper => paper._id.toString() === item.paper_id);
 
 			item.exam_name = exam ? exam.name : null;
 			item.subject_name = subject ? subject.name : null;
