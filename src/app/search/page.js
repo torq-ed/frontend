@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { useRouter } from "next/navigation";
 import {
@@ -13,6 +13,8 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import { ChevronDown, Loader2 } from "lucide-react";
+import Latex from 'react-latex-next'; // Import Latex component
+import 'katex/dist/katex.min.css'; // Import katex CSS for styling
 
 const EXAMS = {
 	"b3b5a8d8-f409-4e01-8fd4-043d3055db5e": {
@@ -154,36 +156,6 @@ const EXAMS = {
 }
 const ALL_SUBJECT_NAMES = [...new Set(Object.values(EXAMS).flatMap(exam => exam.subjects.map(sub => sub[1])))];
 
-const SAMPLE_RESULTS = [
-	{
-		id: 1,
-		question: "A particle moves in a circle of radius 20 cm with constant speed and time period 4π seconds. What is the magnitude of velocity and acceleration of the particle?",
-		exam: "JEE Advanced",
-		subject: "Physics",
-		chapter: "Mechanics",
-		paper: "2022",
-		difficulty: "Hard"
-	},
-	{
-		id: 2,
-		question: "The pH of a monobasic acid with dissociation constant Ka is 3.5 in its 0.1 M solution. Calculate the value of Ka.",
-		exam: "NEET",
-		subject: "Chemistry",
-		chapter: "Physical Chemistry",
-		paper: "2021",
-		difficulty: "Medium"
-	},
-	{
-		id: 3,
-		question: "If y = tan⁻¹(sin x / (1 + cos x)), prove that dy/dx = 1/2.",
-		exam: "JEE Mains",
-		subject: "Mathematics",
-		chapter: "Calculus",
-		paper: "2020",
-		difficulty: "Easy"
-	},
-];
-
 export default function Search() {
 	const [searchQuery, setSearchQuery] = useState("");
 	const [selectedExams, setSelectedExams] = useState([]);
@@ -203,6 +175,15 @@ export default function Search() {
 	const [chapterSearch, setChapterSearch] = useState("");
 	const [paperSearch, setPaperSearch] = useState("");
 
+	const [searchResults, setSearchResults] = useState([]);
+	const [paginationInfo, setPaginationInfo] = useState({
+		currentPage: 1,
+		totalPages: 1,
+		totalResults: 0,
+		limit: 10,
+	});
+	const [currentPage, setCurrentPage] = useState(1);
+	const [isSearchLoading, setIsSearchLoading] = useState(false);
 
 	const availableSubjects = useMemo(() => {
 		if (selectedExams.length === 0) {
@@ -291,11 +272,50 @@ export default function Search() {
 	}, [selectedSubjects]);
 
 
-	// Filter handling functions
+	// Function to fetch search results
+	const fetchSearchResults = useCallback(async (page = 1, limit = 10) => {
+		setIsSearchLoading(true);
+		try {
+			const params = new URLSearchParams();
+			if (searchQuery) params.append('query', searchQuery);
+			if (selectedExams.length > 0) params.append('examIds', selectedExams.join(','));
+			// Extract only subject IDs for the query
+			if (selectedSubjects.length > 0) params.append('subjectIds', [...new Set(selectedSubjects.map(s => s.subjectId))].join(','));
+			if (selectedChapters.length > 0) params.append('chapterIds', selectedChapters.join(','));
+			if (selectedPapers.length > 0) params.append('paperIds', selectedPapers.join(','));
+			params.append('page', page.toString());
+			params.append('limit', limit.toString());
+
+			const response = await fetch(`/api/search/query?${params.toString()}`);
+			if (!response.ok) {
+				throw new Error(`HTTP error! status: ${response.status}`);
+			}
+			const data = await response.json();
+			setSearchResults(data.results || []);
+			setPaginationInfo(data.pagination || { currentPage: 1, totalPages: 1, totalResults: 0, limit: 10 });
+			setCurrentPage(data.pagination?.currentPage || 1); // Ensure currentPage state matches response
+		} catch (error) {
+			console.error("Failed to fetch search results:", error);
+			setSearchResults([]); // Clear results on error
+			setPaginationInfo({ currentPage: 1, totalPages: 1, totalResults: 0, limit: 10 }); // Reset pagination
+		} finally {
+			setIsSearchLoading(false);
+		}
+	}, [searchQuery, selectedExams, selectedSubjects, selectedChapters, selectedPapers]); // Dependencies for the fetch function itself
+
+	// Trigger search on filter changes or page changes
+	useEffect(() => {
+		// Debounce or delay could be added here if needed
+		fetchSearchResults(currentPage, paginationInfo.limit);
+	}, [selectedExams, selectedSubjects, selectedChapters, selectedPapers, currentPage, fetchSearchResults, paginationInfo.limit]); // Include fetchSearchResults and limit
+
+
+	// Filter handling functions (no changes needed)
 	const toggleExam = (examId) => {
 		setSelectedExams(prev =>
 			prev.includes(examId) ? prev.filter(id => id !== examId) : [...prev, examId]
 		);
+		setCurrentPage(1); // Reset page on filter change
 	};
 
 	const toggleSubject = (subjectInfo) => {
@@ -310,38 +330,32 @@ export default function Search() {
                     : [...prev, selectionKey]
             );
         }
+		setCurrentPage(1); // Reset page on filter change
 	};
 
-	// Updated to toggle based on chapter ID
 	const toggleChapter = (chapterId) => {
 		setSelectedChapters(prev =>
 			prev.includes(chapterId) ? prev.filter(id => id !== chapterId) : [...prev, chapterId]
 		);
+		setCurrentPage(1); // Reset page on filter change
 	};
 
-	// Updated to toggle based on paper ID
 	const togglePaper = (paperId) => {
 		setSelectedPapers(prev =>
 			prev.includes(paperId) ? prev.filter(id => id !== paperId) : [...prev, paperId]
 		);
+		setCurrentPage(1); // Reset page on filter change
 	};
 
-	// Search handling
+	// Search handling - Trigger fetch with page 1
 	const handleSearch = (e) => {
 		e.preventDefault();
-		setIsLoading(true);
-		// TODO: Add actual search logic using selected IDs
-		console.log("Searching with:", {
-			query: searchQuery,
-			exams: selectedExams,
-			subjects: selectedSubjects,
-			chapters: selectedChapters,
-			papers: selectedPapers,
-		});
-		setTimeout(() => setIsLoading(false), 800);
+		setIsLoading(true); // Keep visual feedback for button click
+		setCurrentPage(1); // Reset to first page on new search query
+		fetchSearchResults(1, paginationInfo.limit).finally(() => setIsLoading(false));
 	};
 
-	// Clear filters
+	// Clear filters - Reset page and trigger fetch
 	const clearFilters = () => {
 		setSelectedExams([]);
 		setSelectedSubjects([]);
@@ -350,7 +364,16 @@ export default function Search() {
 		setSubjectSearch(""); // Clear dropdown search on filter clear
 		setChapterSearch("");
 		setPaperSearch("");
-		// Fetched data will clear via useEffect hooks
+		setCurrentPage(1); // Reset page
+		// Fetch will be triggered by the state changes via useEffect
+	};
+
+	// Pagination handlers
+	const handlePageChange = (newPage) => {
+		if (newPage >= 1 && newPage <= paginationInfo.totalPages && newPage !== currentPage) {
+			setCurrentPage(newPage);
+			// Fetch is triggered by useEffect watching currentPage
+		}
 	};
 
 	// Helper to check if a subject-exam combo is selected
@@ -369,10 +392,75 @@ export default function Search() {
 		return subjectData ? `${subjectData[1]} | ${exam.name}` : 'Unknown Subject';
 	};
 
-	// Helper to get display name for selected chapter/paper ID
+	// Helper to get display name for selected chapter/paper ID (still needed for filter display)
 	const getSelectedItemName = (itemId, itemsArray) => {
 		const item = itemsArray.find(i => i._id === itemId);
 		return item ? item.name : 'Unknown';
+	};
+
+	// Function to render pagination buttons
+	const renderPaginationButtons = () => {
+		const buttons = [];
+		const totalPages = paginationInfo.totalPages;
+		const maxButtons = 5; // Max buttons to show (e.g., 1 ... 5 6 7 ... 10)
+
+		if (totalPages <= maxButtons) {
+			for (let i = 1; i <= totalPages; i++) {
+				buttons.push(
+					<Button
+						key={i}
+						variant={currentPage === i ? "default" : "outline"}
+						size="sm"
+						className="h-8 w-8 p-0 rounded-md"
+						onClick={() => handlePageChange(i)}
+					>
+						{i}
+					</Button>
+				);
+			}
+		} else {
+			// Logic for showing limited buttons with ellipsis (...)
+			let startPage = Math.max(1, currentPage - Math.floor(maxButtons / 2));
+			let endPage = Math.min(totalPages, startPage + maxButtons - 1);
+
+			if (endPage - startPage + 1 < maxButtons) {
+				startPage = Math.max(1, endPage - maxButtons + 1);
+			}
+
+			if (startPage > 1) {
+				buttons.push(
+					<Button key="1" variant="outline" size="sm" className="h-8 w-8 p-0 rounded-md" onClick={() => handlePageChange(1)}>1</Button>
+				);
+				if (startPage > 2) {
+					buttons.push(<span key="start-ellipsis" className="text-sm px-1">...</span>);
+				}
+			}
+
+			for (let i = startPage; i <= endPage; i++) {
+				buttons.push(
+					<Button
+						key={i}
+						variant={currentPage === i ? "default" : "outline"}
+						size="sm"
+						className="h-8 w-8 p-0 rounded-md"
+						onClick={() => handlePageChange(i)}
+					>
+						{i}
+					</Button>
+				);
+			}
+
+			if (endPage < totalPages) {
+				if (endPage < totalPages - 1) {
+					buttons.push(<span key="end-ellipsis" className="text-sm px-1">...</span>);
+				}
+				buttons.push(
+					<Button key={totalPages} variant="outline" size="sm" className="h-8 w-8 p-0 rounded-md" onClick={() => handlePageChange(totalPages)}>{totalPages}</Button>
+				);
+			}
+		}
+
+		return buttons;
 	};
 
 
@@ -691,45 +779,65 @@ export default function Search() {
 						</div>
 					</div>
 
-					{/* Results section */}
+					{/* Results section - Updated */}
 					<div className="flex-1">
-						<div className="bg-card rounded-xl p-5 shadow-sm border border-border/40">
+						<div className="bg-card rounded-xl p-5 shadow-sm border border-border/40 min-h-[400px] flex flex-col">
 							{/* Results header */}
 							<div className="flex justify-between items-center mb-4">
 								<h2 className="font-semibold text-lg">Results</h2>
-								<p className="text-sm text-foreground/70">
-									{SAMPLE_RESULTS.length} questions found
-								</p>
+								{!isSearchLoading && (
+									<p className="text-sm text-foreground/70">
+										{paginationInfo.totalResults} questions found
+									</p>
+								)}
+								{isSearchLoading && <Loader2 className="h-5 w-5 animate-spin text-primary" />}
 							</div>
 
-							{/* Results list */}
-							<div className="space-y-4">
-								{SAMPLE_RESULTS.map((result) => (
+							{/* Results list - Updated */}
+							<div className="space-y-4 flex-grow">
+								{isSearchLoading && searchResults.length === 0 && ( // Show loader centrally if loading initial results
+									<div className="flex justify-center items-center h-full">
+										<Loader2 className="h-8 w-8 animate-spin text-primary" />
+									</div>
+								)}
+								{!isSearchLoading && searchResults.length === 0 && (
+									<div className="flex justify-center items-center h-full">
+										<p className="text-center text-foreground/60 py-8">No questions found matching your criteria.</p>
+									</div>
+								)}
+								{searchResults.map((result) => (
 									<div
-										key={result.id}
+										key={result._id}
 										className="border border-border/40 hover:border-primary/30 rounded-lg p-4 transition-all hover:shadow-md cursor-pointer"
-										onClick={() => router.push(`/question/${result.id}`)}
+										onClick={() => router.push(`/question/${result._id}`)}
 									>
-										<div className="flex gap-2 mb-2 flex-wrap"> {/* Added flex-wrap */}
-											<span className="bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300 text-xs px-2 py-0.5 rounded-full"> {/* Subject: Blue */}
-												{result.subject}
+										<div className="flex gap-2 mb-2 flex-wrap">
+											<span className="bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300 text-xs px-2 py-0.5 rounded-full">
+												{result.subject_name || 'N/A'}
 											</span>
-											<span className="bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300 text-xs px-2 py-0.5 rounded-full"> {/* Exam: Green */}
-												{result.exam}
+											<span className="bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300 text-xs px-2 py-0.5 rounded-full">
+												{result.exam_name || 'N/A'}
 											</span>
-											<span className="bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300 text-xs px-2 py-0.5 rounded-full"> {/* Paper: Yellow */}
-												{result.paper}
+											<span className="bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300 text-xs px-2 py-0.5 rounded-full">
+												{result.paper_name || 'N/A'}
 											</span>
-											<span className={`text-xs px-2 py-0.5 rounded-full ${result.difficulty === "Easy" ? "bg-teal-100 text-teal-800 dark:bg-teal-900 dark:text-teal-300" : // Easy: Teal
-												result.difficulty === "Medium" ? "bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-300" : // Medium: Orange
-													"bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300" // Hard: Red
-												}`}>
-												{result.difficulty}
+											<span className={`
+												bg-${result.level === 1 ? 'teal' : result.level === 2 ? 'orange' : 'red'}-100 
+												text-${result.level === 1 ? 'teal' : result.level === 2 ? 'orange' : 'red'}-800 
+												dark:bg-${result.level === 1 ? 'teal' : result.level === 2 ? 'orange' : 'red'}-900 
+												dark:text-${result.level === 1 ? 'teal' : result.level === 2 ? 'orange' : 'red'}-300 
+												text-xs px-2 py-0.5 rounded-full`}>
+												{result.level === 1 ? "Easy" : result.level === 2 ? "Medium" : "Hard"}
 											</span>
 										</div>
-										<p className="text-foreground/90">{result.question}</p>
+										{/* Render question text with Latex */}
+										<div className="text-foreground/90 line-clamp-2 overflow-hidden"> {/* Wrap Latex in a div for line-clamp */}
+											<Latex>{result.question || ''}</Latex>
+										</div>
 										<div className="mt-2 flex justify-between items-center">
-											<span className="text-xs text-foreground/60">{result.chapter}</span>
+											<span className="text-xs text-foreground/60">
+												{result.chapter_name || 'N/A'}
+											</span>
 											<Button
 												variant="ghost"
 												size="sm"
@@ -742,35 +850,36 @@ export default function Search() {
 								))}
 							</div>
 
-							{/* Pagination */}
-							<div className="mt-6 flex justify-center">
-								<div className="flex items-center space-x-2">
-									<Button
-										variant="outline"
-										size="sm"
-										className="h-8 w-8 p-0 rounded-md"
-										disabled
-									>
-										<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-											<path d="M15 18l-6-6 6-6"></path>
-										</svg>
-									</Button>
-									<Button variant="default" size="sm" className="h-8 w-8 p-0 rounded-md">1</Button>
-									<Button variant="outline" size="sm" className="h-8 w-8 p-0 rounded-md">2</Button>
-									<Button variant="outline" size="sm" className="h-8 w-8 p-0 rounded-md">3</Button>
-									<span className="text-sm">...</span>
-									<Button variant="outline" size="sm" className="h-8 w-8 p-0 rounded-md">10</Button>
-									<Button
-										variant="outline"
-										size="sm"
-										className="h-8 w-8 p-0 rounded-md"
-									>
-										<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-											<path d="M9 18l6-6-6-6"></path>
-										</svg>
-									</Button>
+							{/* Pagination - Updated */}
+							{paginationInfo.totalPages > 1 && !isSearchLoading && (
+								<div className="mt-6 flex justify-center pt-4 border-t border-border/40">
+									<div className="flex items-center space-x-1">
+										<Button
+											variant="outline"
+											size="sm"
+											className="h-8 w-8 p-0 rounded-md"
+											disabled={currentPage === 1}
+											onClick={() => handlePageChange(currentPage - 1)}
+										>
+											<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+												<path d="M15 18l-6-6 6-6"></path>
+											</svg>
+										</Button>
+										{renderPaginationButtons()} {/* This call should now work */}
+										<Button
+											variant="outline"
+											size="sm"
+											className="h-8 w-8 p-0 rounded-md"
+											disabled={currentPage === paginationInfo.totalPages}
+											onClick={() => handlePageChange(currentPage + 1)}
+										>
+											<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+												<path d="M9 18l6-6-6-6"></path>
+											</svg>
+										</Button>
+									</div>
 								</div>
-							</div>
+							)}
 						</div>
 					</div>
 				</div>
