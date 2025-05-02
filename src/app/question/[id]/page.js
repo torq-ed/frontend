@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react'; // Import useRef
 import { useParams, useRouter } from 'next/navigation';
+import { useSession } from 'next-auth/react'; // Import useSession
 import Latex from 'react-latex-next';
 import 'katex/dist/katex.min.css';
 import { Button } from "@/components/ui/button";
@@ -33,6 +34,7 @@ export default function QuestionPage() {
     const params = useParams();
     const router = useRouter();
     const { id } = params;
+    const { data: session } = useSession(); // Get session data
 
     const [questionData, setQuestionData] = useState(null);
     const [isLoading, setIsLoading] = useState(true);
@@ -86,20 +88,62 @@ export default function QuestionPage() {
         return () => clearInterval(timerRef.current);
     }, [questionData, isSubmitted]); // Dependencies: run when data loads or submission status changes
 
-    const handleCheckAnswer = () => {
+    const handleCheckAnswer = async () => { // Make the function async
         if (!questionData) return;
         clearInterval(timerRef.current); // Stop the timer
         setIsSubmitted(true);
         setShowExplanation(false); // Hide explanation initially on check
 
+        let isCorrectResult = null;
+        let userAnswerData = null;
+        let correctAnswerData = null;
+
         // Treat 'singleCorrect' as an MCQ type
         if (questionData.type === 'singleCorrect') {
             const correctIndex = questionData.correct_option[0]; // Assuming single correct
-            setIsCorrect(selectedOption === correctIndex);
+            isCorrectResult = selectedOption === correctIndex;
+            userAnswerData = selectedOption;
+            correctAnswerData = questionData.correct_option;
         } else if (questionData.type === 'numerical') {
             // Basic comparison, might need more robust checking for numerical answers
-            setIsCorrect(userAnswer.trim() === questionData.correct_value);
+            isCorrectResult = userAnswer.trim() === questionData.correct_value;
+            userAnswerData = userAnswer.trim();
+            correctAnswerData = questionData.correct_value;
         }
+        setIsCorrect(isCorrectResult);
+
+        // --- Add Activity Logging ---
+        if (session?.user?.id) {
+            const activityData = {
+                userId: session.user.id,
+                questionId: id,
+                questionType: questionData.type,
+                userAnswer: userAnswerData,
+                correctAnswer: correctAnswerData,
+                isCorrect: isCorrectResult,
+                timeTaken: elapsedTime, // Time in seconds
+                timestamp: new Date(),
+            };
+
+            try {
+                const response = await fetch('/api/activity', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(activityData),
+                });
+
+                if (!response.ok) {
+                    console.error("Failed to log activity:", await response.text());
+                }
+            } catch (error) {
+                console.error("Error logging activity:", error);
+            }
+        } else {
+            console.log("User not signed in, activity not logged.");
+        }
+        // --- End Activity Logging ---
     };
 
     // Helper function to format time

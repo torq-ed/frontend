@@ -2,14 +2,32 @@
 
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
-import { useEffect } from "react";
+import { useEffect, useState } from "react"; // Import useState
 import { Button } from "@/components/ui/button";
 import Image from "next/image";
 import Link from "next/link"; // Import Link
+import { CheckCircle, XCircle, Clock } from 'lucide-react'; // Import icons
+
+// Helper function to format time difference
+const timeAgo = (timestamp) => {
+    const now = new Date();
+    const past = new Date(timestamp);
+    const diffInSeconds = Math.floor((now - past) / 1000);
+    const diffInMinutes = Math.floor(diffInSeconds / 60);
+    const diffInHours = Math.floor(diffInMinutes / 60);
+    const diffInDays = Math.floor(diffInHours / 24);
+
+    if (diffInSeconds < 60) return `${diffInSeconds}s ago`;
+    if (diffInMinutes < 60) return `${diffInMinutes}m ago`;
+    if (diffInHours < 24) return `${diffInHours}h ago`;
+    return `${diffInDays}d ago`;
+};
 
 export default function Dashboard() {
     const { data: session, status } = useSession();
     const router = useRouter();
+    const [recentActivity, setRecentActivity] = useState([]); // State for activity
+    const [isActivityLoading, setIsActivityLoading] = useState(true); // Loading state
 
     // Redirect to sign in if not authenticated
     useEffect(() => {
@@ -17,6 +35,28 @@ export default function Dashboard() {
             router.push("/signin");
         }
     }, [status, router]);
+
+    // Fetch recent activity when authenticated
+    useEffect(() => {
+        if (status === "authenticated") {
+            setIsActivityLoading(true);
+            fetch('/api/activity')
+                .then(res => res.json())
+                .then(data => {
+                    if (Array.isArray(data)) {
+                        setRecentActivity(data);
+                    } else {
+                        console.error("Fetched activity data is not an array:", data);
+                        setRecentActivity([]); // Set to empty array on error
+                    }
+                })
+                .catch(error => {
+                    console.error("Error fetching activity:", error);
+                    setRecentActivity([]); // Set to empty array on error
+                })
+                .finally(() => setIsActivityLoading(false));
+        }
+    }, [status]); // Re-run when authentication status changes
 
     if (status === "loading") {
         return (
@@ -63,7 +103,7 @@ export default function Dashboard() {
 
                 {/* Dashboard Content */}
                 <div className="grid grid-cols-1 gap-4 sm:gap-6">
-                    {/* Top Row: Stats and Activity on mobile, just Activity on larger screens */}
+                    {/* Top Row: Stats and Activity */}
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4 sm:gap-6">
                         {/* Stats Card - Full width on mobile, 1/3 on desktop */}
                         <div className="bg-card rounded-lg shadow-md p-4 sm:p-6 order-1 md:order-2">
@@ -84,12 +124,36 @@ export default function Dashboard() {
                             </div>
                         </div>
 
-                        {/* Activity Summary - Full width on mobile, 2/3 on desktop */}
+                        {/* Activity Summary - Updated */}
                         <div className="bg-card rounded-lg shadow-md p-4 sm:p-6 col-span-1 md:col-span-2 order-2 md:order-1">
                             <h2 className="text-lg sm:text-xl font-semibold mb-3 sm:mb-4">Recent Activity</h2>
                             <div className="space-y-3 sm:space-y-4">
-                                <p className="text-sm sm:text-base text-foreground/70">No recent activity to display.</p>
-                                {/* Activity items would go here */}
+                                {isActivityLoading ? (
+                                    <p className="text-sm sm:text-base text-foreground/70">Loading activity...</p>
+                                ) : recentActivity.length > 0 ? (
+                                    recentActivity.map(activity => (
+                                        <div key={activity._id} className="flex items-center justify-between p-2 rounded-md hover:bg-accent/50 transition-colors">
+                                            <div className="flex items-center gap-3">
+                                                {activity.isCorrect ? (
+                                                    <CheckCircle className="h-5 w-5 text-green-500 flex-shrink-0" />
+                                                ) : (
+                                                    <XCircle className="h-5 w-5 text-red-500 flex-shrink-0" />
+                                                )}
+                                                <div>
+                                                    <p className="text-sm font-medium">
+                                                        Attempted Question {/* Consider linking: <Link href={`/question/${activity.questionId}`}>...</Link> */}
+                                                    </p>
+                                                    <p className="text-xs text-foreground/70 flex items-center gap-1">
+                                                        <Clock className="h-3 w-3" /> {timeAgo(activity.timestamp)} • {activity.timeTaken}s
+                                                    </p>
+                                                </div>
+                                            </div>
+                                            {/* Optionally add more details or a link */}
+                                        </div>
+                                    ))
+                                ) : (
+                                    <p className="text-sm sm:text-base text-foreground/70">No recent activity to display.</p>
+                                )}
                             </div>
                         </div>
                     </div>
