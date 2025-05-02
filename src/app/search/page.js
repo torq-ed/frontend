@@ -822,6 +822,13 @@ export default function Search() {
 												{result.paper_name || 'N/A'}
 											</span>
 											<span className={`
+												${result.type === 'numerical' ? 'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-300'
+												: result.type === 'singleCorrect' ? 'bg-pink-100 text-pink-800 dark:bg-pink-900 dark:text-pink-300'
+												: 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300'}
+												text-xs px-2 py-0.5 rounded-full capitalize`}>
+												{result.type === 'numerical' ? "Numerical" : result.type === 'singleCorrect' ? "Single Correct" : "Multiple Correct"}
+											</span>
+											<span className={`
 												${result.level === 1 ? 'bg-teal-100 text-teal-800 dark:bg-teal-900 dark:text-teal-300' 
 												: result.level === 2 ? 'bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-300' 
 																	: 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300'}
@@ -841,6 +848,11 @@ export default function Search() {
 												variant="ghost"
 												size="sm"
 												className="h-8 text-xs hover:bg-primary/10 hover:text-primary"
+												onClick={(e) => {
+														e.stopPropagation();
+														router.push(`/question/${result._id}`);
+													}
+												}
 											>
 												View Question
 											</Button>

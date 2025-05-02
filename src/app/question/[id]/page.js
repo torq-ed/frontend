@@ -11,84 +11,23 @@ import { Label } from "@/components/ui/label";
 import { Loader2, CheckCircle, XCircle, Eye } from 'lucide-react';
 import { Badge } from "@/components/ui/badge"; // Assuming you have a Badge component
 
-// Mock function to fetch question data - replace with your actual API call
+// Replace Mock function with actual API call
 async function fetchQuestionData(id) {
-    // Example: Replace with fetch(`/api/question/${id}`)
-    // This mock simulates fetching data and resolving names
-    console.log(`Fetching question with ID: ${id}`);
-    await new Promise(resolve => setTimeout(resolve, 500)); // Simulate network delay
-
-    // Example data structure (replace with actual fetched data)
-    const mockData = {
-        "c0d31be8-472e-4245-a455-e79a95772adf": {
-            "_id": "c0d31be8-472e-4245-a455-e79a95772adf",
-            "question": "A physical quantity $Q$ is related to four observables $a, b, c, d$ as follows :\n$\\mathrm{Q}=\\frac{\\mathrm{ab}{ }^4}{\\mathrm{~cd}}$\n\nwhere, $\\mathrm{a}=(60 \\pm 3) \\mathrm{Pa} ; \\mathrm{b}=(20 \\pm 0.1) \\mathrm{m} ; \\mathrm{c}=(40 \\pm 0.2) \\mathrm{Nsm}^{-2}$ and $\\mathrm{d}=(50 \\pm 0.1) \\mathrm{m}$, then the percentage error in Q is $\\frac{x}{1000}$, where $x=$ ________ .",
-            "type": "numerical", // Can be "mcq" or "numerical"
-            "paper_id": "97ee7f60-4b48-4534-8b97-dac4daedb0d2",
-            "level": 2, // 1: Easy, 2: Medium, 3: Hard
-            "options": [], // For MCQ: ["Option A text", "Option B text", ...]
-            "correct_option": [], // For MCQ: Index or text of correct option(s)
-            "correct_value": "7700", // For numerical
-            "explanation": "$\\begin{aligned} & \\mathrm{Q}=\\frac{\\mathrm{ab}^4}{\\mathrm{~cd}} \\\\ & \\Rightarrow \\frac{\\Delta \\mathrm{Q}}{\\mathrm{Q}} \\times 100=\\left[\\frac{\\Delta \\mathrm{a}}{\\mathrm{a}}+4 \\frac{\\Delta \\mathrm{~b}}{\\mathrm{~b}}+\\frac{\\Delta \\mathrm{c}}{\\mathrm{c}}+\\frac{\\Delta \\mathrm{d}}{\\mathrm{d}}\\right] \\times 100 \\\\ & \\Rightarrow \\frac{\\mathrm{x}}{1000}=\\left[\\frac{3}{60}+4\\left(\\frac{0.1}{20}\\right)+\\left(\\frac{0.2}{40}\\right)+\\frac{0.1}{50}\\right] \\times 100 \\\\ & \\Rightarrow \\mathrm{x}=7700\\end{aligned}$",
-            "chapter": "d09b550d-c06d-4603-a5c5-8ed115b366a6",
-            "subject": "7bc04a29-039c-430d-980d-a066b16efc86",
-            "exam": "b3b5a8d8-f409-4e01-8fd4-043d3055db5e",
-            // Add resolved names (assuming API provides these)
-            "exam_name": "JEE Main",
-            "subject_name": "Physics",
-            "chapter_name": "Units and Measurements",
-            "paper_name": "2023 Shift 1"
-        },
-        "f8b97505-2a95-46c8-b1aa-aa29cab08d0a": {
-            "_id": "f8b97505-2a95-46c8-b1aa-aa29cab08d0a",
-            "question": "For an experimental expression $y=\\frac{32.3 \\times 1125}{27.4}$, where all the digits are significant. Then to report the value of $y$ we should write",
-            "type": "singleCorrect",
-            "paper_id": "9190c57b-4dcf-4e4a-8aa8-7c3ebb05664f",
-            "level": 1,
-            "options": [
-              "$y=1326.19$",
-              "$y=1330$",
-              "$y=1326.186$",
-              "$y=1326.2$"
-            ],
-            "correct_option": [
-              1
-            ],
-            "correct_value": null,
-            "explanation": "$y=\\frac{32.3 \\times 1125}{27.4}=1326.18$\nSo we need to report to three significant digit.\nSo, $y=1330$",
-            "chapter": "d09b550d-c06d-4603-a5c5-8ed115b366a6",
-            "subject": "7bc04a29-039c-430d-980d-a066b16efc86",
-            "exam": "b3b5a8d8-f409-4e01-8fd4-043d3055db5e",
-            "exam_name": "JEE Main",
-            "subject_name": "Physics",
-            "chapter_name": "Units and Measurements",
-            "paper_name": "2023 Shift 1"
-          },
-        // Add another mock question for MCQ type if needed
-        // "another-mcq-id": {
-        //     "_id": "another-mcq-id",
-        //     "question": "What is the value of $\\int_0^1 x^2 dx$?",
-        //     "type": "mcq",
-        //     "paper_id": "some-paper-id",
-        //     "level": 1,
-        //     "options": ["1/3", "1/2", "1", "2"],
-        //     "correct_option": [0], // Index of the correct option
-        //     "correct_value": null,
-        //     "explanation": "$\\int_0^1 x^2 dx = [\\frac{x^3}{3}]_0^1 = \\frac{1^3}{3} - \\frac{0^3}{3} = \\frac{1}{3}$",
-        //     "chapter": "some-chapter-id",
-        //     "subject": "some-subject-id",
-        //     "exam": "some-exam-id",
-        //     "exam_name": "Mock Exam",
-        //     "subject_name": "Mathematics",
-        //     "chapter_name": "Integration",
-        //     "paper_name": "Practice Set 1"
-        // }
-    };
-
-    // Return data for the requested ID or null if not found
-    return mockData[id] || null;
+    try {
+        const response = await fetch(`/api/question/${id}`);
+        if (!response.ok) {
+            if (response.status === 404) {
+                return null; // Question not found
+            }
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        const data = await response.json();
+        return data;
+    } catch (error) {
+        console.error("Error fetching question data:", error);
+        throw error; // Re-throw the error to be caught in the useEffect
+    }
 }
-
 
 export default function QuestionPage() {
     const params = useParams();
