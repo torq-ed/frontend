@@ -21,114 +21,126 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
-import { Loader2, ArrowRight, Settings, FileText, ListChecks, Hash, Percent, Clock } from "lucide-react";
+import { Loader2, ArrowRight, Settings, FileText, ListChecks, Hash, Percent, Clock, Zap, SlidersHorizontal } from "lucide-react";
 import { useRouter } from "next/navigation";
 
-// Placeholder for exams data - ideally fetched or imported from a shared source
-const EXAMS_PLACEHOLDER = [
-    { id: "jee-main", name: "JEE Main" },
-    { id: "jee-adv", name: "JEE Advanced" },
-    { id: "neet", name: "NEET" },
-    { id: "bitsat", name: "BITSAT" },
-    // Add other exams as needed
-];
-
-// Placeholder for fetching data
-const fetchPapersForExam = async (examId) => {
-    console.log(`Fetching papers for exam: ${examId}`);
-    // Simulate API call
-    await new Promise(resolve => setTimeout(resolve, 500));
-    if (examId === 'jee-main') {
-        return [
-            { id: 'jee-main-2023-jan-s1', name: 'JEE Main 2023 - Jan Session 1' },
-            { id: 'jee-main-2023-apr-s1', name: 'JEE Main 2023 - Apr Session 1' },
-        ];
-    }
-    return [];
+// Default Settings Map (Example for JEE Main) - Keep for applying defaults logic
+const DEFAULT_SETTINGS = {
+    "jee-main": {
+        duration: 180,
+        subjects: {
+            'physics_id_placeholder': { count: 25, mcq: 20, numerical: 5 },
+            'chemistry_id_placeholder': { count: 25, mcq: 20, numerical: 5 },
+            'maths_id_placeholder': { count: 25, mcq: 20, numerical: 5 },
+        },
+        questionType: 'both',
+        ratio: Math.round((60 / 75) * 100),
+    },
 };
-
-const fetchSubjectsAndChaptersForExam = async (examId) => {
-    console.log(`Fetching subjects/chapters for exam: ${examId}`);
-    // Simulate API call
-    await new Promise(resolve => setTimeout(resolve, 700));
-    // Return structure: { subjectId: { name: 'Subject Name', chapters: [{ id: 'chap1', name: 'Chapter 1' }, ...] } }
-    if (examId === 'jee-main') {
-        return {
-            'physics': { name: 'Physics', chapters: [{ id: 'phy-mech', name: 'Mechanics' }, { id: 'phy-em', name: 'Electromagnetism' }] },
-            'chemistry': { name: 'Chemistry', chapters: [{ id: 'chem-org', name: 'Organic' }, { id: 'chem-inorg', name: 'Inorganic' }] },
-            'maths': { name: 'Mathematics', chapters: [{ id: 'math-calc', name: 'Calculus' }, { id: 'math-alg', name: 'Algebra' }] },
-        };
-    }
-    return {};
-};
-
 
 export default function GenerateTestPage() {
     const router = useRouter();
 
     // State
-    const [examsData, setExamsData] = useState(EXAMS_PLACEHOLDER); // Use placeholder for now
+    const [examsData, setExamsData] = useState([]);
+    const [isLoadingExams, setIsLoadingExams] = useState(true);
     const [selectedExam, setSelectedExam] = useState(null);
-    const [testType, setTestType] = useState(null); // 'past' or 'custom'
+    const [testType, setTestType] = useState(null);
+    const [customConfigStep, setCustomConfigStep] = useState(null);
+    const [shouldApplyDefaults, setShouldApplyDefaults] = useState(false);
 
-    // Past Paper State
     const [papersData, setPapersData] = useState([]);
     const [isLoadingPapers, setIsLoadingPapers] = useState(false);
     const [selectedPaper, setSelectedPaper] = useState(null);
 
-    // Custom Test State
-    const [subjectsData, setSubjectsData] = useState({}); // { subjectId: { name, chapters: [...] } }
+    const [subjectsData, setSubjectsData] = useState([]);
+    const [chaptersBySubject, setChaptersBySubject] = useState({});
     const [isLoadingSubjectsChapters, setIsLoadingSubjectsChapters] = useState(false);
-    const [selectedSubjects, setSelectedSubjects] = useState([]); // Array of subject IDs
-    const [selectedChapters, setSelectedChapters] = useState({}); // { subjectId: [chapterId1, chapterId2] }
-    const [questionType, setQuestionType] = useState('both'); // 'mcq', 'numerical', 'both'
-    const [questionCounts, setQuestionCounts] = useState({}); // { subjectId: count }
-    const [ratio, setRatio] = useState(50); // MCQ percentage (default 50%)
-    const [testDuration, setTestDuration] = useState(180); // Default duration in minutes
+    const [selectedSubjects, setSelectedSubjects] = useState([]);
+    const [selectedChapters, setSelectedChapters] = useState({});
+    const [questionType, setQuestionType] = useState('both');
+    const [questionCounts, setQuestionCounts] = useState({});
+    const [ratio, setRatio] = useState(50);
+    const [testDuration, setTestDuration] = useState(180);
 
     const [isGenerating, setIsGenerating] = useState(false);
 
-    // Fetch papers when exam changes
     useEffect(() => {
-        if (selectedExam && testType === 'past') {
-            setIsLoadingPapers(true);
-            setPapersData([]);
-            setSelectedPaper(null);
-            fetchPapersForExam(selectedExam)
-                .then(data => setPapersData(data))
-                .catch(err => console.error("Failed to fetch papers:", err))
-                .finally(() => setIsLoadingPapers(false));
-        } else {
-            setPapersData([]); // Clear if exam/type changes
-            setSelectedPaper(null);
-        }
-    }, [selectedExam, testType]);
+        setIsLoadingExams(true);
+        fetch('/api/generate/config')
+            .then(res => res.json())
+            .then(data => {
+                setExamsData(data.exams || []);
+            })
+            .catch(err => console.error("Failed to fetch exams:", err))
+            .finally(() => setIsLoadingExams(false));
+    }, []);
 
-    // Fetch subjects/chapters when exam changes for custom tests
     useEffect(() => {
-        if (selectedExam && testType === 'custom') {
-            setIsLoadingSubjectsChapters(true);
-            setSubjectsData({});
-            setSelectedSubjects([]);
-            setSelectedChapters({});
-            setQuestionCounts({});
-            fetchSubjectsAndChaptersForExam(selectedExam)
-                .then(data => setSubjectsData(data))
-                .catch(err => console.error("Failed to fetch subjects/chapters:", err))
-                .finally(() => setIsLoadingSubjectsChapters(false));
-        } else {
-            setSubjectsData({}); // Clear if exam/type changes
-            setSelectedSubjects([]);
-            setSelectedChapters({});
-            setQuestionCounts({});
-        }
-    }, [selectedExam, testType]);
+        setPapersData([]);
+        setSubjectsData([]);
+        setChaptersBySubject({});
+        setSelectedPaper(null);
+        setSelectedSubjects([]);
+        setSelectedChapters({});
+        setQuestionCounts({});
 
-    // Handlers
+        if (selectedExam && (testType === 'past' || (testType === 'custom' && (customConfigStep === 'configure' || customConfigStep === 'defaultApplied')))) {
+            const endpoint = `/api/generate/config?examId=${selectedExam}`;
+            let loadingSetter = testType === 'past' ? setIsLoadingPapers : setIsLoadingSubjectsChapters;
+
+            loadingSetter(true);
+            fetch(endpoint)
+                .then(res => res.json())
+                .then(data => {
+                    if (testType === 'past') {
+                        setPapersData(data.papers || []);
+                    } else {
+                        setSubjectsData(data.subjects || []);
+                        setChaptersBySubject(data.chaptersBySubject || {});
+                        if (customConfigStep === 'defaultApplied') {
+                            setShouldApplyDefaults(true);
+                        }
+                    }
+                })
+                .catch(err => console.error(`Failed to fetch config for exam ${selectedExam}:`, err))
+                .finally(() => loadingSetter(false));
+        }
+    }, [selectedExam, testType, customConfigStep]);
+
+    useEffect(() => {
+        if (shouldApplyDefaults && Array.isArray(subjectsData) && subjectsData.length > 0 && Object.keys(chaptersBySubject).length > 0 && selectedExam) {
+            const defaults = DEFAULT_SETTINGS[selectedExam];
+            if (defaults) {
+                console.log("Applying default settings for:", selectedExam);
+                const allSubjectIds = subjectsData.map(s => s.id);
+                const allChapters = {};
+                const defaultCounts = {};
+
+                allSubjectIds.forEach(subjId => {
+                    allChapters[subjId] = chaptersBySubject[subjId]?.map(c => c.id) || [];
+                    const defaultSubjectConfig = Object.entries(defaults.subjects).find(([key, val]) => key === subjId);
+                    defaultCounts[subjId] = defaultSubjectConfig ? defaultSubjectConfig[1].count : 10;
+                });
+
+                setSelectedSubjects(allSubjectIds);
+                setSelectedChapters(allChapters);
+                setQuestionCounts(defaultCounts);
+                setQuestionType(defaults.questionType);
+                setRatio(defaults.ratio);
+                setTestDuration(defaults.duration);
+            } else {
+                console.warn("No default settings found for exam:", selectedExam);
+                setCustomConfigStep('configure');
+            }
+            setShouldApplyDefaults(false);
+        }
+    }, [shouldApplyDefaults, subjectsData, chaptersBySubject, selectedExam]);
+
     const handleExamChange = (examId) => {
         setSelectedExam(examId);
-        setTestType(null); // Reset test type when exam changes
-        // Reset subsequent selections
+        setTestType(null);
+        setCustomConfigStep(null);
         setSelectedPaper(null);
         setSelectedSubjects([]);
         setSelectedChapters({});
@@ -137,7 +149,7 @@ export default function GenerateTestPage() {
 
     const handleTestTypeChange = (type) => {
         setTestType(type);
-        // Reset selections specific to the other type
+        setCustomConfigStep(type === 'custom' ? 'choose' : null);
         if (type === 'past') {
             setSelectedSubjects([]);
             setSelectedChapters({});
@@ -147,43 +159,42 @@ export default function GenerateTestPage() {
         }
     };
 
+    const handleUseDefaultSettings = () => {
+        if (!DEFAULT_SETTINGS[selectedExam]) {
+            alert(`Default settings are not available for ${examsData.find(e => e.id === selectedExam)?.name || 'this exam'}. Please configure manually.`);
+            handleConfigureManually();
+            return;
+        }
+        setCustomConfigStep('defaultApplied');
+    };
+
+    const handleConfigureManually = () => {
+        setCustomConfigStep('configure');
+    };
+
     const handleSubjectToggle = (subjectId) => {
+        if (!selectedSubjects.includes(subjectId)) {
+            setSelectedChapters(prev => ({ ...prev, [subjectId]: [] }));
+            setQuestionCounts(prev => ({ ...prev, [subjectId]: 10 }));
+        }
         setSelectedSubjects(prev =>
             prev.includes(subjectId)
-                ? prev.filter(id => id !== subjectId)
+                ? prev.filter(subj => subj !== subjectId)
                 : [...prev, subjectId]
         );
-        // Reset chapters and counts for this subject if deselected
-        if (selectedSubjects.includes(subjectId)) {
-            setSelectedChapters(prev => {
-                const newState = { ...prev };
-                delete newState[subjectId];
-                return newState;
-            });
-            setQuestionCounts(prev => {
-                const newState = { ...prev };
-                delete newState[subjectId];
-                return newState;
-            });
-        } else {
-             // Initialize chapter selection for the newly selected subject
-             setSelectedChapters(prev => ({ ...prev, [subjectId]: [] }));
-             setQuestionCounts(prev => ({ ...prev, [subjectId]: 10 })); // Default count
-        }
     };
 
     const handleChapterToggle = (subjectId, chapterId) => {
-        setSelectedChapters(prev => {
-            const currentChapters = prev[subjectId] || [];
-            const updatedChapters = currentChapters.includes(chapterId)
-                ? currentChapters.filter(id => id !== chapterId)
-                : [...currentChapters, chapterId];
-            return { ...prev, [subjectId]: updatedChapters };
-        });
+        setSelectedChapters(prev => ({
+            ...prev,
+            [subjectId]: prev[subjectId]?.includes(chapterId)
+                ? prev[subjectId].filter(chap => chap !== chapterId)
+                : [...(prev[subjectId] || []), chapterId],
+        }));
     };
 
     const handleSelectAllChapters = (subjectId) => {
-        const allChapterIds = subjectsData[subjectId]?.chapters.map(c => c.id) || [];
+        const allChapterIds = chaptersBySubject[subjectId]?.map(c => c.id) || [];
         setSelectedChapters(prev => ({ ...prev, [subjectId]: allChapterIds }));
     };
 
@@ -191,21 +202,15 @@ export default function GenerateTestPage() {
         setSelectedChapters(prev => ({ ...prev, [subjectId]: [] }));
     };
 
-     const handleQuestionCountChange = (subjectId, count) => {
-        const value = parseInt(count, 10);
-        setQuestionCounts(prev => ({
-            ...prev,
-            [subjectId]: isNaN(value) || value < 1 ? 1 : value // Ensure positive integer
-        }));
-    };
-
-    const handleGenerateTest = () => {
+    const handleGenerateTest = async () => {
         setIsGenerating(true);
-        console.log("Generating test with config:", {
+        const isDefault = testType === 'custom' && customConfigStep === 'defaultApplied';
+        const payload = {
             selectedExam,
             testType,
             selectedPaper: testType === 'past' ? selectedPaper : null,
             customConfig: testType === 'custom' ? {
+                usedDefaults: isDefault,
                 selectedSubjects,
                 selectedChapters,
                 questionType,
@@ -213,27 +218,51 @@ export default function GenerateTestPage() {
                 ratio: questionType === 'both' ? ratio : null,
                 duration: testDuration,
             } : null,
-        });
-        // Simulate generation and navigation
-        setTimeout(() => {
+        };
+
+        console.log("Sending generation request:", payload);
+
+        try {
+            const response = await fetch('/api/generate/start', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload),
+            });
+
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.error || `HTTP error! status: ${response.status}`);
+            }
+
+            const data = await response.json();
+            console.log("Generated test data:", data); // data contains { testId, duration, questionCount }
+
+            // Use data.testId and data.questionCount
+            alert(`Test created! ID: ${data.testId}. Questions: ${data.questionCount}. Duration: ${data.duration} mins.`);
+
+            // Navigate to the test page using the testId
+            router.push(`/test/${data.testId}`);
+
+        } catch (error) {
+            console.error("Failed to generate test:", error);
+            alert(`Error generating test: ${error.message}`);
+        } finally {
             setIsGenerating(false);
-            // router.push('/test/session-id'); // Navigate to the actual test interface
-            alert("Test generation initiated! (Navigation placeholder)");
-        }, 1500);
+        }
     };
 
-    // Derived state/checks
     const canProceedToType = !!selectedExam;
     const canProceedToConfig = canProceedToType && !!testType;
     const isPastPaperConfigComplete = testType === 'past' && !!selectedPaper;
     const isCustomConfigComplete = testType === 'custom' &&
-                                   selectedSubjects.length > 0 &&
-                                   selectedSubjects.every(subjId => (selectedChapters[subjId]?.length > 0 && questionCounts[subjId] > 0)) &&
-                                   !!questionType &&
-                                   testDuration > 0;
+                                   (customConfigStep === 'defaultApplied' ||
+                                    (customConfigStep === 'configure' &&
+                                     selectedSubjects.length > 0 &&
+                                     selectedSubjects.every(subjId => (selectedChapters[subjId]?.length > 0 && questionCounts[subjId] > 0)) &&
+                                     !!questionType &&
+                                     testDuration > 0));
     const canGenerate = (isPastPaperConfigComplete || isCustomConfigComplete) && !isGenerating;
 
-    // Calculate total questions and breakdown
     const { totalQuestions, totalMcq, totalNumerical } = useMemo(() => {
         let tq = 0;
         let tm = 0;
@@ -260,36 +289,40 @@ export default function GenerateTestPage() {
         return { totalQuestions: tq, totalMcq: tm, totalNumerical: tn };
     }, [selectedSubjects, questionCounts, questionType, ratio, testType]);
 
-
     return (
         <main className="min-h-screen pt-24 px-4 sm:px-6 lg:px-8">
             <div className="max-w-4xl mx-auto pb-12">
                 <h1 className="text-3xl font-bold mb-2 text-center">Generate Your Test</h1>
                 <p className="text-center text-muted-foreground mb-8">Configure and create a personalized practice test.</p>
 
-                {/* Step 1: Select Exam */}
                 <Card className="mb-6 shadow-sm transition-all duration-300 ease-out">
                     <CardHeader>
                         <CardTitle className="flex items-center gap-2"><ListChecks className="w-5 h-5 text-primary" /> Select Exam</CardTitle>
                         <CardDescription>Choose the examination you want to generate a test for.</CardDescription>
                     </CardHeader>
                     <CardContent>
-                        <Select onValueChange={handleExamChange} value={selectedExam || ""}>
-                            <SelectTrigger>
-                                <SelectValue placeholder="Select an exam..." />
-                            </SelectTrigger>
-                            <SelectContent>
-                                {examsData.map((exam) => (
-                                    <SelectItem key={exam.id} value={exam.id}>
-                                        {exam.name}
-                                    </SelectItem>
-                                ))}
-                            </SelectContent>
-                        </Select>
+                        {isLoadingExams ? (
+                             <div className="flex items-center justify-center p-4">
+                                <Loader2 className="w-6 h-6 animate-spin text-primary" />
+                                <span className="ml-2">Loading exams...</span>
+                            </div>
+                        ) : (
+                            <Select onValueChange={handleExamChange} value={selectedExam || ""}>
+                                <SelectTrigger>
+                                    <SelectValue placeholder="Select an exam..." />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    {examsData.map((exam) => (
+                                        <SelectItem key={exam._id} value={exam._id}>
+                                            {exam.name}
+                                        </SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                        )}
                     </CardContent>
                 </Card>
 
-                {/* Step 2: Select Test Type */}
                 {canProceedToType && (
                     <Card className="mb-6 shadow-sm animate-fade-in">
                         <CardHeader>
@@ -313,7 +346,23 @@ export default function GenerateTestPage() {
                     </Card>
                 )}
 
-                {/* Step 3a: Select Past Paper */}
+                {canProceedToConfig && testType === 'custom' && customConfigStep === 'choose' && (
+                    <Card className="mb-6 shadow-sm animate-fade-in">
+                        <CardHeader>
+                            <CardTitle className="flex items-center gap-2"><SlidersHorizontal className="w-5 h-5 text-primary" /> Custom Test Setup</CardTitle>
+                            <CardDescription>Use recommended default settings or configure manually.</CardDescription>
+                        </CardHeader>
+                        <CardContent className="flex flex-col sm:flex-row gap-4">
+                            <Button onClick={handleUseDefaultSettings} className="flex-1" variant="outline">
+                                <Zap className="w-4 h-4 mr-2" /> Use Default Settings
+                            </Button>
+                            <Button onClick={handleConfigureManually} className="flex-1">
+                                <Settings className="w-4 h-4 mr-2" /> Configure Manually
+                            </Button>
+                        </CardContent>
+                    </Card>
+                )}
+
                 {canProceedToConfig && testType === 'past' && (
                     <Card className="mb-6 shadow-sm animate-fade-in">
                         <CardHeader>
@@ -333,7 +382,7 @@ export default function GenerateTestPage() {
                                     </SelectTrigger>
                                     <SelectContent>
                                         {papersData.map((paper) => (
-                                            <SelectItem key={paper.id} value={paper.id}>
+                                            <SelectItem key={paper._id} value={paper._id}>
                                                 {paper.name}
                                             </SelectItem>
                                         ))}
@@ -346,8 +395,7 @@ export default function GenerateTestPage() {
                     </Card>
                 )}
 
-                {/* Step 3b: Configure Custom Test */}
-                {canProceedToConfig && testType === 'custom' && (
+                {canProceedToConfig && testType === 'custom' && customConfigStep === 'configure' && (
                     <Card className="mb-6 shadow-sm animate-fade-in">
                         <CardHeader>
                             <CardTitle className="flex items-center gap-2"><Settings className="w-5 h-5 text-primary" /> Configure Custom Test</CardTitle>
@@ -359,138 +407,86 @@ export default function GenerateTestPage() {
                                     <Loader2 className="w-6 h-6 animate-spin text-primary" />
                                     <span className="ml-2">Loading configuration options...</span>
                                 </div>
-                            ) : Object.keys(subjectsData).length > 0 ? (
+                            ) : Array.isArray(subjectsData) && subjectsData.length > 0 ? (
                                 <>
-                                    {/* Subject Selection */}
                                     <div>
                                         <Label className="text-base font-medium mb-3 block">1. Select Subjects</Label>
                                         <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                                            {Object.entries(subjectsData).map(([id, data]) => (
+                                            {subjectsData.map((subject) => (
                                                 <Label
-                                                    key={id}
-                                                    htmlFor={`subj-${id}`}
-                                                    className={`flex items-center gap-2 border rounded-md p-3 cursor-pointer transition-colors hover:border-primary/80 ${selectedSubjects.includes(id) ? 'border-primary bg-primary/5' : 'border-border'}`}
+                                                    key={subject.id}
+                                                    htmlFor={`subj-${subject.id}`}
+                                                    className={`flex items-center gap-2 border rounded-md p-3 cursor-pointer transition-colors hover:border-primary/80 ${selectedSubjects.includes(subject.id) ? 'border-primary bg-primary/5' : 'border-border'}`}
                                                 >
                                                     <Checkbox
-                                                        id={`subj-${id}`}
-                                                        checked={selectedSubjects.includes(id)}
-                                                        onCheckedChange={() => handleSubjectToggle(id)}
+                                                        id={`subj-${subject.id}`}
+                                                        checked={selectedSubjects.includes(subject.id)}
+                                                        onCheckedChange={() => handleSubjectToggle(subject.id)}
                                                     />
-                                                    <span className="text-sm font-medium">{data.name}</span>
+                                                    <span className="text-sm font-medium">{subject.name}</span>
                                                 </Label>
                                             ))}
                                         </div>
                                     </div>
 
-                                    {/* Chapter Selection (per selected subject) */}
                                     {selectedSubjects.length > 0 && (
                                         <div className="space-y-4 pt-4 border-t">
                                             <Label className="text-base font-medium mb-1 block">2. Select Chapters</Label>
-                                            {selectedSubjects.map(subjId => (
-                                                <div key={subjId} className="p-4 border rounded-md bg-card">
-                                                    <h4 className="font-semibold mb-3 text-primary">{subjectsData[subjId]?.name} Chapters</h4>
-                                                    <div className="flex justify-between items-center mb-3">
-                                                        <Label htmlFor={`qcount-${subjId}`} className="text-sm font-medium flex items-center gap-1"><Hash className="w-3 h-3"/> Questions:</Label>
-                                                        <Input
-                                                            id={`qcount-${subjId}`}
-                                                            type="number"
-                                                            min="1"
-                                                            value={questionCounts[subjId] || ''}
-                                                            onChange={(e) => handleQuestionCountChange(subjId, e.target.value)}
-                                                            className="w-20 h-8 text-sm"
-                                                            placeholder="e.g., 10"
-                                                        />
+                                            {selectedSubjects.map(subjId => {
+                                                const subjectName = subjectsData.find(s => s.id === subjId)?.name || 'Subject';
+                                                const chaptersForCurrentSubject = chaptersBySubject[subjId] || [];
+                                                return (
+                                                    <div key={subjId} className="p-4 border rounded-md bg-card">
+                                                        <h4 className="font-semibold mb-3 text-primary">{subjectName} Chapters</h4>
+                                                        <div className="flex gap-2 mb-3">
+                                                            <Button variant="ghost" size="xs" className="text-xs text-muted-foreground hover:text-primary" onClick={() => handleSelectAllChapters(subjId)}>Select All</Button>
+                                                            <Button variant="ghost" size="xs" className="text-xs text-muted-foreground hover:text-primary" onClick={() => handleDeselectAllChapters(subjId)}>Deselect All</Button>
+                                                        </div>
+                                                        <div className="max-h-48 overflow-y-auto space-y-2 custom-scrollbar pr-2">
+                                                            {chaptersForCurrentSubject.length > 0 ? chaptersForCurrentSubject.map(chapter => (
+                                                                <Label
+                                                                    key={chapter.id}
+                                                                    htmlFor={`chap-${subjId}-${chapter.id}`}
+                                                                    className="flex items-center gap-2 p-2 rounded hover:bg-accent cursor-pointer text-sm"
+                                                                >
+                                                                    <Checkbox
+                                                                        id={`chap-${subjId}-${chapter.id}`}
+                                                                        checked={selectedChapters[subjId]?.includes(chapter.id) || false}
+                                                                        onCheckedChange={() => handleChapterToggle(subjId, chapter.id)}
+                                                                    />
+                                                                    {chapter.name}
+                                                                </Label>
+                                                            )) : (
+                                                                <p className="text-xs text-muted-foreground italic text-center">No chapters found for this subject.</p>
+                                                            )}
+                                                        </div>
+                                                        {chaptersForCurrentSubject.length > 0 && selectedChapters[subjId]?.length === 0 && (
+                                                            <p className="text-xs text-muted-foreground italic mt-2 text-center">Select at least one chapter for {subjectName}.</p>
+                                                        )}
                                                     </div>
-                                                    <div className="flex gap-2 mb-3">
-                                                        <Button variant="ghost" size="xs" className="text-xs text-muted-foreground hover:text-primary" onClick={() => handleSelectAllChapters(subjId)}>Select All</Button>
-                                                        <Button variant="ghost" size="xs" className="text-xs text-muted-foreground hover:text-primary" onClick={() => handleDeselectAllChapters(subjId)}>Deselect All</Button>
-                                                    </div>
-                                                    <div className="max-h-48 overflow-y-auto space-y-2 custom-scrollbar pr-2">
-                                                        {subjectsData[subjId]?.chapters.map(chapter => (
-                                                            <Label
-                                                                key={chapter.id}
-                                                                htmlFor={`chap-${subjId}-${chapter.id}`}
-                                                                className="flex items-center gap-2 p-2 rounded hover:bg-accent cursor-pointer text-sm"
-                                                            >
-                                                                <Checkbox
-                                                                    id={`chap-${subjId}-${chapter.id}`}
-                                                                    checked={selectedChapters[subjId]?.includes(chapter.id) || false}
-                                                                    onCheckedChange={() => handleChapterToggle(subjId, chapter.id)}
-                                                                />
-                                                                {chapter.name}
-                                                            </Label>
-                                                        ))}
-                                                    </div>
-                                                     {selectedChapters[subjId]?.length === 0 && (
-                                                        <p className="text-xs text-muted-foreground italic mt-2 text-center">Select at least one chapter for {subjectsData[subjId]?.name}.</p>
-                                                    )}
-                                                </div>
-                                            ))}
-                                        </div>
-                                    )}
-
-                                    {/* Question Type Selection */}
-                                    {selectedSubjects.length > 0 && (
-                                        <div className="pt-4 border-t">
-                                            <Label className="text-base font-medium mb-3 block">3. Select Question Types</Label>
-                                            <RadioGroup value={questionType} onValueChange={setQuestionType} className="flex flex-col sm:flex-row gap-3">
-                                                <Label htmlFor="qtype-mcq" className="flex items-center gap-2 border rounded-md p-3 cursor-pointer transition-colors hover:border-primary/80 flex-1 [&:has([data-state=checked])]:border-primary [&:has([data-state=checked])]:bg-primary/5">
-                                                    <RadioGroupItem value="mcq" id="qtype-mcq" />
-                                                    <span>MCQ Only</span>
-                                                </Label>
-                                                <Label htmlFor="qtype-num" className="flex items-center gap-2 border rounded-md p-3 cursor-pointer transition-colors hover:border-primary/80 flex-1 [&:has([data-state=checked])]:border-primary [&:has([data-state=checked])]:bg-primary/5">
-                                                    <RadioGroupItem value="numerical" id="qtype-num" />
-                                                    <span>Numerical Only</span>
-                                                </Label>
-                                                <Label htmlFor="qtype-both" className="flex items-center gap-2 border rounded-md p-3 cursor-pointer transition-colors hover:border-primary/80 flex-1 [&:has([data-state=checked])]:border-primary [&:has([data-state=checked])]:bg-primary/5">
-                                                    <RadioGroupItem value="both" id="qtype-both" />
-                                                    <span>Both (MCQ & Numerical)</span>
-                                                </Label>
-                                            </RadioGroup>
-                                        </div>
-                                    )}
-
-                                    {/* Ratio Selection (if 'both' types selected) */}
-                                    {selectedSubjects.length > 0 && questionType === 'both' && (
-                                        <div className="pt-4 border-t">
-                                            <Label htmlFor="ratio-slider" className="text-base font-medium mb-3 block flex items-center gap-1"><Percent className="w-4 h-4"/> 4. Set MCQ/Numerical Ratio</Label>
-                                            <div className="flex items-center gap-4">
-                                                <span className="text-sm font-medium text-muted-foreground">MCQ</span>
-                                                <Input
-                                                    id="ratio-slider"
-                                                    type="range"
-                                                    min="0"
-                                                    max="100"
-                                                    step="5"
-                                                    value={ratio}
-                                                    onChange={(e) => setRatio(parseInt(e.target.value))}
-                                                    className="flex-1 h-2 cursor-pointer accent-primary"
-                                                />
-                                                <span className="text-sm font-medium text-muted-foreground">Numerical</span>
-                                            </div>
-                                            <p className="text-center text-sm mt-2 font-medium">{ratio}% MCQ / {100 - ratio}% Numerical</p>
+                                                );
+                                            })}
                                         </div>
                                     )}
                                 </>
                             ) : (
-                                <p className="text-sm text-muted-foreground text-center italic">Configuration options not available for this exam.</p>
+                                <p className="text-sm text-muted-foreground text-center italic">Configuration options not available or failed to load for this exam.</p>
                             )}
                         </CardContent>
                     </Card>
                 )}
 
-                 {/* Step 4: Test Summary & Duration (Only for Custom Test) */}
-                 {isCustomConfigComplete && testType === 'custom' && (
+                {testType === 'custom' && (customConfigStep === 'defaultApplied' || (customConfigStep === 'configure' && isCustomConfigComplete)) && (
                     <Card className="mb-6 shadow-sm animate-fade-in">
                         <CardHeader>
                             <CardTitle className="flex items-center gap-2"><Clock className="w-5 h-5 text-primary" /> Test Summary & Duration</CardTitle>
-                            <CardDescription>Review the test structure and set the duration.</CardDescription>
+                            {customConfigStep === 'defaultApplied' && <CardDescription>Default settings applied. You can still adjust the duration.</CardDescription>}
+                            {customConfigStep === 'configure' && <CardDescription>Review the test structure and set the duration.</CardDescription>}
                         </CardHeader>
                         <CardContent className="space-y-4">
                             <div className="grid grid-cols-2 gap-4 text-sm border p-3 rounded-md">
                                 <div className="font-medium">Total Questions:</div>
                                 <div className="text-right font-semibold">{totalQuestions}</div>
-
                                 {questionType === 'both' && (
                                     <>
                                         <div className="font-medium text-muted-foreground">MCQ Questions:</div>
@@ -499,40 +495,26 @@ export default function GenerateTestPage() {
                                         <div className="text-right">{totalNumerical}</div>
                                     </>
                                 )}
-                                {questionType === 'mcq' && (
-                                     <>
-                                        <div className="font-medium text-muted-foreground">MCQ Questions:</div>
-                                        <div className="text-right">{totalQuestions}</div>
-                                    </>
-                                )}
-                                 {questionType === 'numerical' && (
-                                     <>
-                                        <div className="font-medium text-muted-foreground">Numerical Questions:</div>
-                                        <div className="text-right">{totalQuestions}</div>
-                                    </>
-                                )}
                             </div>
-                             <div>
+                            <div>
                                 <Label htmlFor="test-duration" className="text-base font-medium mb-2 block">Set Test Duration (minutes)</Label>
                                 <Input
                                     id="test-duration"
                                     type="number"
-                                    min="10" // Minimum duration
+                                    min="10"
                                     step="5"
                                     value={testDuration}
-                                    onChange={(e) => setTestDuration(Math.max(10, parseInt(e.target.value) || 10))} // Ensure minimum duration
+                                    onChange={(e) => setTestDuration(Math.max(10, parseInt(e.target.value) || 10))}
                                     className="w-full"
                                     placeholder="e.g., 180"
                                 />
                             </div>
                         </CardContent>
                     </Card>
-                 )}
+                )}
 
-
-                {/* Generate Button */}
                 {(isPastPaperConfigComplete || isCustomConfigComplete) && (
-                     <div className="mt-8 flex justify-center animate-fade-in">
+                    <div className="mt-8 flex justify-center animate-fade-in">
                         <Button
                             size="lg"
                             onClick={handleGenerateTest}
@@ -553,7 +535,6 @@ export default function GenerateTestPage() {
     );
 }
 
-// Add basic fade-in animation CSS (can be moved to globals.css)
 const styles = `
 @keyframes fadeIn {
   from { opacity: 0; transform: translateY(10px); }
@@ -563,7 +544,6 @@ const styles = `
   animation: fadeIn 0.5s ease-out forwards;
 }
 
-/* Custom scrollbar for chapter lists */
 .custom-scrollbar::-webkit-scrollbar {
   width: 6px;
 }
@@ -581,7 +561,6 @@ const styles = `
 }
 `;
 
-// Inject styles (consider moving to a CSS file)
 if (typeof window !== 'undefined') {
     const styleSheet = document.createElement("style");
     styleSheet.type = "text/css";
