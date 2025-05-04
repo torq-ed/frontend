@@ -4,12 +4,12 @@ Here's a **prioritized implementation order** for the ideas, balancing feasibili
 
 ### **Phase 1: Core MVP (Launch Essentials)**  
 *Focus on foundational features to launch a functional app.*  
-- [ ] 1. **Topic-Wise PYQs** (categorized by chapter/year).  
+- [x] 1. **Topic-Wise PYQs** (categorized by chapter/year).  
 - [ ] 2. **Basic Test Generator** (manual selection of chapters/years).  
 - [ ] 3. **Bookmarking with Custom Tags** (e.g., "Gand Phaad Question").  
 - [x] 4. **Basic User Profiles** (username, progress tracking).  
 - [ ] 5. **Dark/Light Mode Toggle**.  
-- [ ] 6. **Question Search Functionality**.  
+- [x] 6. **Question Search Functionality**.  
 - [ ] 7. **Formula Sheets/Quick Revision Notes**.  
 - [ ] 8. **Mock Test UI Replica** (NTA-like interface for realism).  
 - [ ] 9. **Community Solutions** (with basic moderation).  
