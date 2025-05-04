@@ -24,24 +24,32 @@ import { Input } from "@/components/ui/input";
 import { Loader2, ArrowRight, Settings, FileText, ListChecks, Hash, Percent, Clock, Zap, SlidersHorizontal } from "lucide-react";
 import { useRouter } from "next/navigation";
 
-// Default Settings Map (Example for JEE Main) - Keep for applying defaults logic
 const DEFAULT_SETTINGS = {
-    "jee-main": {
+    "b3b5a8d8-f409-4e01-8fd4-043d3055db5e": {
         duration: 180,
         subjects: {
-            'physics_id_placeholder': { count: 25, mcq: 20, numerical: 5 },
-            'chemistry_id_placeholder': { count: 25, mcq: 20, numerical: 5 },
-            'maths_id_placeholder': { count: 25, mcq: 20, numerical: 5 },
+            '7bc04a29-039c-430d-980d-a066b16efc86': { count: 25, mcq: 20, numerical: 5 },
+            'bdcc1b1b-5d9d-465d-a7b8-f9619bb61fe7': { count: 25, mcq: 20, numerical: 5 },
+            'f1d41a0c-1a71-4994-90f3-4b5d82a6f5f9': { count: 25, mcq: 20, numerical: 5 },
         },
         questionType: 'both',
-        ratio: Math.round((60 / 75) * 100),
+        ratio: Math.round(((20 + 20 + 20) / (25 + 25 + 25)) * 100),
     },
+    "4625ad6f-33db-4c22-96e0-6c23830482de": {
+        duration: 180,
+        subjects: {
+            '4b89e781-8987-47aa-84b6-d95025d590b0': { count: 45, mcq: 45, numerical: 0 },
+            '45966dd6-eaed-452f-bfcc-e9632c72da0f': { count: 45, mcq: 45, numerical: 0 },
+            '634d1a76-ecfd-4d2b-bdb9-5d6658948236': { count: 90, mcq: 90, numerical: 0 },
+        },
+        questionType: 'mcq',
+        ratio: 100,
+    }
 };
 
 export default function GenerateTestPage() {
     const router = useRouter();
 
-    // State
     const [examsData, setExamsData] = useState([]);
     const [isLoadingExams, setIsLoadingExams] = useState(true);
     const [selectedExam, setSelectedExam] = useState(null);
@@ -52,6 +60,7 @@ export default function GenerateTestPage() {
     const [papersData, setPapersData] = useState([]);
     const [isLoadingPapers, setIsLoadingPapers] = useState(false);
     const [selectedPaper, setSelectedPaper] = useState(null);
+    const [paperSearchTerm, setPaperSearchTerm] = useState("");
 
     const [subjectsData, setSubjectsData] = useState([]);
     const [chaptersBySubject, setChaptersBySubject] = useState({});
@@ -119,8 +128,8 @@ export default function GenerateTestPage() {
 
                 allSubjectIds.forEach(subjId => {
                     allChapters[subjId] = chaptersBySubject[subjId]?.map(c => c.id) || [];
-                    const defaultSubjectConfig = Object.entries(defaults.subjects).find(([key, val]) => key === subjId);
-                    defaultCounts[subjId] = defaultSubjectConfig ? defaultSubjectConfig[1].count : 10;
+                    const subjectDefaultConfig = defaults.subjects[subjId];
+                    defaultCounts[subjId] = subjectDefaultConfig ? subjectDefaultConfig.count : 10;
                 });
 
                 setSelectedSubjects(allSubjectIds);
@@ -235,12 +244,10 @@ export default function GenerateTestPage() {
             }
 
             const data = await response.json();
-            console.log("Generated test data:", data); // data contains { testId, duration, questionCount }
-
-            // Use data.testId and data.questionCount
+            console.log("Generated test data:", data);
+            
             alert(`Test created! ID: ${data.testId}. Questions: ${data.questionCount}. Duration: ${data.duration} mins.`);
 
-            // Navigate to the test page using the testId
             router.push(`/test/${data.testId}`);
 
         } catch (error) {
@@ -288,6 +295,15 @@ export default function GenerateTestPage() {
         }
         return { totalQuestions: tq, totalMcq: tm, totalNumerical: tn };
     }, [selectedSubjects, questionCounts, questionType, ratio, testType]);
+
+    const filteredPapersData = useMemo(() => {
+        if (!paperSearchTerm) {
+            return papersData;
+        }
+        return papersData.filter(paper =>
+            paper.name.toLowerCase().includes(paperSearchTerm.toLowerCase())
+        );
+    }, [papersData, paperSearchTerm]);
 
     return (
         <main className="min-h-screen pt-24 px-4 sm:px-6 lg:px-8">
@@ -378,14 +394,26 @@ export default function GenerateTestPage() {
                             ) : papersData.length > 0 ? (
                                 <Select onValueChange={setSelectedPaper} value={selectedPaper || ""}>
                                     <SelectTrigger>
-                                        <SelectValue placeholder="Select a paper..." />
+                                        <SelectValue placeholder="Select or search for a paper..." />
                                     </SelectTrigger>
                                     <SelectContent>
-                                        {papersData.map((paper) => (
-                                            <SelectItem key={paper._id} value={paper._id}>
-                                                {paper.name}
-                                            </SelectItem>
-                                        ))}
+                                        <div className="p-2">
+                                            <Input
+                                                placeholder="Search papers..."
+                                                value={paperSearchTerm}
+                                                onChange={(e) => setPaperSearchTerm(e.target.value)}
+                                                className="w-full h-9"
+                                            />
+                                        </div>
+                                        {filteredPapersData.length > 0 ? (
+                                            filteredPapersData.map((paper) => (
+                                                <SelectItem key={paper._id} value={paper._id}>
+                                                    {paper.name}
+                                                </SelectItem>
+                                            ))
+                                        ) : (
+                                            <div className="p-2 text-center text-sm text-muted-foreground">No papers found.</div>
+                                        )}
                                     </SelectContent>
                                 </Select>
                             ) : (
