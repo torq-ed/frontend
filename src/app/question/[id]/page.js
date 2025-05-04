@@ -1,16 +1,11 @@
 "use client";
 
-import { useState, useEffect, useRef } from 'react'; // Import useRef
+import { useState, useEffect, useRef } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { useSession } from 'next-auth/react'; // Import useSession
-import Latex from 'react-latex-next';
-import 'katex/dist/katex.min.css';
+import { useSession } from 'next-auth/react';
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { Label } from "@/components/ui/label";
-import { Loader2, CheckCircle, XCircle, Eye } from 'lucide-react';
-import { Badge } from "@/components/ui/badge"; // Assuming you have a Badge component
+import { Loader2, XCircle } from 'lucide-react';
+import QuestionDisplay from '@/components/QuestionDisplay'; // Import the new component
 
 // Replace Mock function with actual API call
 async function fetchQuestionData(id) {
@@ -34,27 +29,35 @@ export default function QuestionPage() {
     const params = useParams();
     const router = useRouter();
     const { id } = params;
-    const { data: session } = useSession(); // Get session data
+    const { data: session } = useSession();
 
     const [questionData, setQuestionData] = useState(null);
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState(null);
-    const [userAnswer, setUserAnswer] = useState('');
-    const [selectedOption, setSelectedOption] = useState(null); // For MCQ
+    const [userAnswer, setUserAnswer] = useState(null); // Use null for initial MCQ state
     const [isSubmitted, setIsSubmitted] = useState(false);
     const [isCorrect, setIsCorrect] = useState(null);
     const [showExplanation, setShowExplanation] = useState(false);
-    const [elapsedTime, setElapsedTime] = useState(0); // State for timer in seconds
-    const timerRef = useRef(null); // Ref to store interval ID
+    const [elapsedTime, setElapsedTime] = useState(0);
+    const timerRef = useRef(null);
 
     useEffect(() => {
         if (id) {
             setIsLoading(true);
             setError(null);
+            setIsSubmitted(false); // Reset submission state on new question load
+            setIsCorrect(null);
+            setShowExplanation(false);
+            setUserAnswer(null); // Reset answer
+            setElapsedTime(0); // Reset timer
+            clearInterval(timerRef.current); // Clear previous timer
+
             fetchQuestionData(id)
                 .then(data => {
                     if (data) {
                         setQuestionData(data);
+                        // Initialize userAnswer based on type after data loads
+                        setUserAnswer(data.type === 'numerical' ? '' : null);
                     } else {
                         setError("Question not found.");
                     }
@@ -70,42 +73,38 @@ export default function QuestionPage() {
             setError("No question ID provided.");
             setIsLoading(false);
         }
+        // Cleanup function for timer when component unmounts or id changes
+        return () => clearInterval(timerRef.current);
     }, [id]);
 
     // Timer Effect
     useEffect(() => {
-        if (questionData && !isSubmitted) {
-            // Start timer only if data is loaded and not submitted
+        if (questionData && !isSubmitted && !isLoading) { // Start timer only if data loaded, not submitted, not loading
             timerRef.current = setInterval(() => {
                 setElapsedTime(prevTime => prevTime + 1);
             }, 1000);
         } else {
-            // Clear interval if submitted or no data
             clearInterval(timerRef.current);
         }
+        // No cleanup needed here as it's handled in the id effect's cleanup
+    }, [questionData, isSubmitted, isLoading]);
 
-        // Cleanup function to clear interval on component unmount or before re-running
-        return () => clearInterval(timerRef.current);
-    }, [questionData, isSubmitted]); // Dependencies: run when data loads or submission status changes
-
-    const handleCheckAnswer = async () => { // Make the function async
+    const handleCheckAnswer = async () => {
         if (!questionData) return;
-        clearInterval(timerRef.current); // Stop the timer
+        clearInterval(timerRef.current);
         setIsSubmitted(true);
-        setShowExplanation(false); // Hide explanation initially on check
+        setShowExplanation(false);
 
         let isCorrectResult = null;
         let userAnswerData = null;
         let correctAnswerData = null;
 
-        // Treat 'singleCorrect' as an MCQ type
         if (questionData.type === 'singleCorrect') {
-            const correctIndex = questionData.correct_option[0]; // Assuming single correct
-            isCorrectResult = selectedOption === correctIndex;
-            userAnswerData = selectedOption;
+            const correctIndex = questionData.correct_option[0];
+            isCorrectResult = userAnswer === correctIndex; // userAnswer is already the index
+            userAnswerData = userAnswer;
             correctAnswerData = questionData.correct_option;
         } else if (questionData.type === 'numerical') {
-            // Basic comparison, might need more robust checking for numerical answers
             isCorrectResult = userAnswer.trim() === questionData.correct_value;
             userAnswerData = userAnswer.trim();
             correctAnswerData = questionData.correct_value;
@@ -121,22 +120,18 @@ export default function QuestionPage() {
                 userAnswer: userAnswerData,
                 correctAnswer: correctAnswerData,
                 isCorrect: isCorrectResult,
-                timeTaken: elapsedTime, // Time in seconds
+                timeTaken: elapsedTime,
                 timestamp: new Date(),
+                context: 'single_question_view' // Add context
             };
 
             try {
                 const response = await fetch('/api/activity', {
                     method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
+                    headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(activityData),
                 });
-
-                if (!response.ok) {
-                    console.error("Failed to log activity:", await response.text());
-                }
+                if (!response.ok) console.error("Failed to log activity:", await response.text());
             } catch (error) {
                 console.error("Error logging activity:", error);
             }
@@ -146,20 +141,12 @@ export default function QuestionPage() {
         // --- End Activity Logging ---
     };
 
-    // Helper function to format time
-    const formatTime = (totalSeconds) => {
-        const minutes = Math.floor(totalSeconds / 60);
-        const seconds = totalSeconds % 60;
-        return `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+    const handleAnswerChange = (newAnswer) => {
+        setUserAnswer(newAnswer);
     };
 
-    const getDifficultyBadge = (level) => {
-        switch (level) {
-            case 1: return <Badge variant="outline" className="bg-teal-100 text-teal-800 dark:bg-teal-900 dark:text-teal-300 border-teal-300">Easy</Badge>;
-            case 2: return <Badge variant="outline" className="bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-300 border-orange-300">Medium</Badge>;
-            case 3: return <Badge variant="outline" className="bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300 border-red-300">Hard</Badge>;
-            default: return <Badge variant="secondary">Unknown</Badge>;
-        }
+    const handleToggleExplanation = () => {
+        setShowExplanation(!showExplanation);
     };
 
     if (isLoading) {
@@ -182,125 +169,33 @@ export default function QuestionPage() {
     }
 
     if (!questionData) {
-        // This case might be redundant if error handles 'not found', but good as a fallback
         return <div className="min-h-screen flex items-center justify-center pt-20">Question data not available.</div>;
     }
 
     return (
         <main className="min-h-screen pt-24 px-4 sm:px-6 lg:px-8 bg-background">
             <div className="max-w-4xl mx-auto">
-                {/* Question Card */}
-                <div className="bg-card rounded-xl shadow-md border border-border/40 p-6 md:p-8 mb-6">
-                    {/* Metadata & Timer */}
-                    <div className="flex flex-wrap justify-between items-center gap-2 mb-4 text-xs">
-                        <div className="flex flex-wrap gap-2">
-                            <Badge variant="secondary">{questionData.exam_name || 'N/A'}</Badge>
-                            <Badge variant="secondary">{questionData.subject_name || 'N/A'}</Badge>
-                            <Badge variant="secondary">{questionData.chapter_name || 'N/A'}</Badge>
-                            <Badge variant="secondary">{questionData.paper_name || 'N/A'}</Badge>
-                            {getDifficultyBadge(questionData.level)}
-                        </div>
-                        {/* Display Timer */}
-                        <div className="font-mono text-sm text-foreground/80 bg-accent px-2 py-1 rounded">
-                            Time: {formatTime(elapsedTime)}
-                        </div>
-                    </div>
+                {/* Use the QuestionDisplay component */}
+                <QuestionDisplay
+                    questionData={questionData}
+                    mode="view"
+                    userAnswer={userAnswer}
+                    onAnswerChange={handleAnswerChange}
+                    isSubmitted={isSubmitted}
+                    isCorrect={isCorrect}
+                    showExplanation={showExplanation}
+                    onCheckAnswer={handleCheckAnswer}
+                    onToggleExplanation={handleToggleExplanation}
+                    elapsedTime={elapsedTime}
+                />
 
-                    {/* Question Text */}
-                    <div className="prose prose-sm sm:prose lg:prose-lg dark:prose-invert max-w-none mb-6">
-                        <Latex>{questionData.question || ''}</Latex>
-                    </div>
-
-                    {/* Answer Section */}
-                    <div className="mb-6">
-                        <h2 className="text-lg font-semibold mb-3 border-b pb-2">Your Answer</h2>
-                        {/* Render RadioGroup for 'singleCorrect' type */}
-                        {questionData.type === 'singleCorrect' && (
-                            <RadioGroup
-                                value={selectedOption !== null ? selectedOption.toString() : undefined}
-                                onValueChange={(value) => setSelectedOption(parseInt(value))}
-                                disabled={isSubmitted}
-                                className="space-y-3"
-                            >
-                                {questionData.options.map((option, index) => (
-                                    <div key={index} className={`flex items-center space-x-3 p-3 rounded-md border transition-colors ${
-                                        isSubmitted && questionData.correct_option.includes(index) ? 'border-green-500 bg-green-50 dark:bg-green-900/30' : ''
-                                    } ${
-                                        isSubmitted && selectedOption === index && !questionData.correct_option.includes(index) ? 'border-red-500 bg-red-50 dark:bg-red-900/30' : ''
-                                    } ${!isSubmitted ? 'border-border hover:bg-accent' : ''}`}>
-                                        <RadioGroupItem value={index.toString()} id={`option-${index}`} className="mt-1 self-start" />
-                                        <Label htmlFor={`option-${index}`} className="flex-1 cursor-pointer">
-                                            <Latex>{option}</Latex>
-                                        </Label>
-                                        {isSubmitted && selectedOption === index && (
-                                            isCorrect ? <CheckCircle className="h-5 w-5 text-green-600 ml-2" /> : <XCircle className="h-5 w-5 text-red-600 ml-2" />
-                                        )}
-                                         {isSubmitted && selectedOption !== index && questionData.correct_option.includes(index) && (
-                                            <CheckCircle className="h-5 w-5 text-green-600 ml-2" />
-                                        )}
-                                    </div>
-                                ))}
-                            </RadioGroup>
-                        )}
-
-                        {questionData.type === 'numerical' && (
-                            <div className="flex items-center gap-3">
-                                <Input
-                                    type="text" // Use text to allow various numerical inputs, validation might be needed
-                                    placeholder="Enter your answer"
-                                    value={userAnswer}
-                                    onChange={(e) => setUserAnswer(e.target.value)}
-                                    disabled={isSubmitted}
-                                    className={`flex-grow ${isSubmitted ? (isCorrect ? 'border-green-500 focus-visible:ring-green-500' : 'border-red-500 focus-visible:ring-red-500') : ''}`}
-                                />
-                                {isSubmitted && (
-                                    isCorrect ? <CheckCircle className="h-6 w-6 text-green-600" /> : <XCircle className="h-6 w-6 text-red-600" />
-                                )}
-                            </div>
-                        )}
-                    </div>
-
-                    {/* Action Buttons & Feedback */}
-                    <div className="flex flex-col sm:flex-row items-center gap-4">
-                        <Button
-                            onClick={handleCheckAnswer}
-                            // Update disabled condition for 'singleCorrect'
-                            disabled={isSubmitted || (questionData.type === 'singleCorrect' && selectedOption === null) || (questionData.type === 'numerical' && userAnswer.trim() === '')}
-                            className="w-full sm:w-auto"
-                        >
-                            {isSubmitted ? (isCorrect ? 'Correct!' : 'Incorrect') : 'Check Answer'}
-                        </Button>
-
-                        {isSubmitted && (
-                            <Button
-                                variant="outline"
-                                onClick={() => setShowExplanation(!showExplanation)}
-                                className="w-full sm:w-auto"
-                            >
-                                <Eye className="mr-2 h-4 w-4" />
-                                {showExplanation ? 'Hide Explanation' : 'Show Explanation'}
-                            </Button>
-                        )}
-                    </div>
-
-                    {/* Explanation Section */}
-                    {isSubmitted && showExplanation && questionData.explanation && (
-                        <div className="mt-6 pt-4 border-t border-border/40">
-                            <h3 className="text-md font-semibold mb-2">Explanation</h3>
-                            <div className="prose prose-sm sm:prose dark:prose-invert max-w-none bg-accent/50 dark:bg-accent/20 p-4 rounded-md">
-                                <Latex>{questionData.explanation}</Latex>
-                            </div>
-                        </div>
-                    )}
+                {/* Navigation or other actions */}
+                <div className="flex justify-between items-center mt-8 mb-12">
+                    <Button variant="outline" onClick={() => router.back()}>
+                        Back
+                    </Button>
+                    {/* Add next/previous question buttons if needed */}
                 </div>
-
-                 {/* Navigation or other actions */}
-                 <div className="flex justify-between items-center mt-8 mb-12">
-                     <Button variant="outline" onClick={() => router.back()}>
-                         Back to Search
-                     </Button>
-                     {/* Add next/previous question buttons if needed */}
-                 </div>
             </div>
         </main>
     );

@@ -39,12 +39,12 @@ export async function POST(request) {
             if (!selectedPaper) {
                 return NextResponse.json({ error: "Missing paper selection for past paper test" }, { status: 400 });
             }
-            // Fetch all questions for the selected paper
+            // Fetch all questions for the selected paper (IDs are strings)
             const questions = await questionsCollection.find(
                 { paper_id: selectedPaper },
                 { projection: { _id: 1 } }
             ).toArray();
-            questionIds = questions.map(q => q._id);
+            questionIds = questions.map(q => q._id); // IDs are already strings
 
             // Fetch duration from paper if possible
             const paperData = await pyqsDb.collection("papers").findOne({ _id: selectedPaper }, { projection: { duration: 1 } });
@@ -90,7 +90,7 @@ export async function POST(request) {
                     chapter: { $in: chaptersForSubj }
                 };
 
-                // Fetch MCQs
+                // Fetch MCQs (IDs are strings)
                 if (mcqCount > 0) {
                     const mcqs = await questionsCollection.aggregate([
                         { $match: { ...baseMatch, type: 'singleCorrect' } },
@@ -100,7 +100,7 @@ export async function POST(request) {
                     allQuestions.push(...mcqs);
                 }
 
-                // Fetch Numericals
+                // Fetch Numericals (IDs are strings)
                 if (numericalCount > 0) {
                     const numericals = await questionsCollection.aggregate([
                         { $match: { ...baseMatch, type: 'numerical' } },
@@ -111,13 +111,13 @@ export async function POST(request) {
                 }
             }
 
-            questionIds = allQuestions.map(q => q._id);
+            questionIds = allQuestions.map(q => q._id); // IDs are already strings
 
         } else {
             return NextResponse.json({ error: "Invalid test type" }, { status: 400 });
         }
 
-        // Shuffle the final list of question IDs
+        // Shuffle the final list of question IDs (strings)
         const shuffledIds = shuffleArray(questionIds);
 
         // Generate a unique ID for the test session
@@ -130,7 +130,7 @@ export async function POST(request) {
             createdBy: userId,
             createdAt: createdAt,
             config: config, // Store the original configuration received
-            questionIds: shuffledIds,
+            questionIds: shuffledIds, // Store string IDs
             duration: duration,
             status: 'not_started', // Initial status
             // Add other fields like 'startedAt', 'completedAt', 'score' later

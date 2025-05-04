@@ -86,10 +86,10 @@ export async function GET(request) {
 		const papers = await papersCollection.find({ _id: { $in: paperIdsToFetch } }, { projection: { _id: 1, name: 1 } }).toArray();
 
 		for (const item of data) {
-			const exam = exams.find(exam => exam._id.toString() === item.exam.toString());
-			const subject = subjects.find(subject => subject._id.toString() === item.subject.toString());
-			const chapter = chapters.find(chapter => chapter._id.toString() === item.chapter.toString());
-			const paper = papers.find(paper => paper._id.toString() === item.paper_id);
+			const exam = exams.find(exam => exam._id === item.exam);
+			const subject = subjects.find(subject => subject._id === item.subject);
+			const chapter = chapters.find(chapter => chapter._id === item.chapter);
+			const paper = papers.find(paper => paper._id === item.paper_id);
 
 			item.exam_name = exam ? exam.name : null;
 			item.subject_name = subject ? subject.name : null;

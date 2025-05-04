@@ -2,6 +2,7 @@ import { Noto_Sans } from "next/font/google";
 import { ThemeProvider } from "@/components/theme-provider";
 import { SessionProvider } from "@/components/session-provider";
 import { Navbar } from "@/components/navbar";
+import { GoogleAnalytics } from '@next/third-parties/google'
 import "./globals.css";
 
 const notoSans = Noto_Sans({
@@ -54,6 +55,7 @@ export default function RootLayout({ children }) {
                     </SessionProvider>
                 </ThemeProvider>
             </body>
+            <GoogleAnalytics gaId="G-TR1TZNCV4G" />
         </html>
     );
 }
