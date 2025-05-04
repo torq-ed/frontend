@@ -6,20 +6,18 @@ import DiscordProvider from "next-auth/providers/discord";
 import RedditProvider from "next-auth/providers/reddit";
 
 export const authOptions = {
-    adapter: MongoDBAdapter(clientPromise),
+    adapter: MongoDBAdapter(clientPromise, { databaseName: "userdata" }),
     providers: [
         GoogleProvider({
             clientId: process.env.GOOGLE_CLIENT_ID,
             clientSecret: process.env.GOOGLE_CLIENT_SECRET,
+            allowDangerousEmailAccountLinking: true, 
         }),
         DiscordProvider({
             clientId: process.env.DISCORD_CLIENT_ID,
             clientSecret: process.env.DISCORD_CLIENT_SECRET,
+            allowDangerousEmailAccountLinking: true,
         }),
-        // RedditProvider({
-        //     clientId: process.env.REDDIT_CLIENT_ID,
-        //     clientSecret: process.env.REDDIT_CLIENT_SECRET,
-        // }),
     ],
     session: {
         strategy: "jwt",
@@ -36,30 +34,24 @@ export const authOptions = {
             try {
                 const client = await clientPromise;
                 const db = client.db("userdata");
-                const collection = db.collection("users");
-
-                // Check if user is signing in with Discord to get the Discord ID
+                const collection = db.collection("connections"); 
+                
                 const discordId = account?.provider === "discord" ? account.providerAccountId : null;
                 
-                // Check if the user already exists
                 const existingUser = await collection.findOne({ email: user.email });
                 
                 if (!existingUser) {
-                    // Add the user to the database with Discord ID and Reddit username
                     await collection.insertOne({ 
                         email: user.email,
                         discordId: discordId
                     });
                 } else {
-                    // Update fields if needed
                     const updates = {};
                     
                     if (account?.provider === "discord" && existingUser.discordId !== discordId) {
                         updates.discordId = discordId;
                     }
                     
-                    
-                    // Only update if there are changes
                     if (Object.keys(updates).length > 0) {
                         await collection.updateOne(
                             { email: user.email },
