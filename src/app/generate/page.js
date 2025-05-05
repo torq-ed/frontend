@@ -21,6 +21,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
+import { Slider } from "@/components/ui/slider";
 import { Loader2, ArrowRight, Settings, FileText, ListChecks, Hash, Percent, Clock, Zap, SlidersHorizontal } from "lucide-react";
 import { useRouter } from "next/navigation";
 
@@ -71,6 +72,7 @@ export default function GenerateTestPage() {
     const [questionCounts, setQuestionCounts] = useState({});
     const [ratio, setRatio] = useState(50);
     const [testDuration, setTestDuration] = useState(180);
+    const [testName, setTestName] = useState("");
 
     const [isGenerating, setIsGenerating] = useState(false);
 
@@ -211,12 +213,33 @@ export default function GenerateTestPage() {
         setSelectedChapters(prev => ({ ...prev, [subjectId]: [] }));
     };
 
+    const handleQuestionCountChange = (subjectId, count) => {
+        const validCount = Math.max(1, parseInt(count) || 1);
+        setQuestionCounts(prev => ({
+            ...prev,
+            [subjectId]: validCount
+        }));
+    };
+
+    const handleQuestionTypeChange = (type) => {
+        setQuestionType(type);
+    };
+
+    const handleRatioChange = (value) => {
+        setRatio(value[0]);
+    };
+
     const handleGenerateTest = async () => {
         setIsGenerating(true);
         const isDefault = testType === 'custom' && customConfigStep === 'defaultApplied';
+        
+        // Determine default name if needed
+        const finalTestName = testName.trim() || `Generated Test - ${new Date().toLocaleString()}`;
+
         const payload = {
             selectedExam,
             testType,
+            testName: finalTestName, // Add test name here
             selectedPaper: testType === 'past' ? selectedPaper : null,
             customConfig: testType === 'custom' ? {
                 usedDefaults: isDefault,
@@ -226,6 +249,7 @@ export default function GenerateTestPage() {
                 questionCounts,
                 ratio: questionType === 'both' ? ratio : null,
                 duration: testDuration,
+                name: testName,
             } : null,
         };
 
@@ -465,7 +489,20 @@ export default function GenerateTestPage() {
                                                 const chaptersForCurrentSubject = chaptersBySubject[subjId] || [];
                                                 return (
                                                     <div key={subjId} className="p-4 border rounded-md bg-card">
-                                                        <h4 className="font-semibold mb-3 text-primary">{subjectName} Chapters</h4>
+                                                        <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
+                                                            <h4 className="font-semibold text-primary">{subjectName} Chapters</h4>
+                                                            <div className="flex items-center gap-2">
+                                                                <Label htmlFor={`count-${subjId}`} className="text-sm whitespace-nowrap">Questions:</Label>
+                                                                <Input
+                                                                    id={`count-${subjId}`}
+                                                                    type="number"
+                                                                    min="1"
+                                                                    className="w-16 h-8 text-sm"
+                                                                    value={questionCounts[subjId] || 10}
+                                                                    onChange={(e) => handleQuestionCountChange(subjId, e.target.value)}
+                                                                />
+                                                            </div>
+                                                        </div>
                                                         <div className="flex gap-2 mb-3">
                                                             <Button variant="ghost" size="xs" className="text-xs text-muted-foreground hover:text-primary" onClick={() => handleSelectAllChapters(subjId)}>Select All</Button>
                                                             <Button variant="ghost" size="xs" className="text-xs text-muted-foreground hover:text-primary" onClick={() => handleDeselectAllChapters(subjId)}>Deselect All</Button>
@@ -494,6 +531,56 @@ export default function GenerateTestPage() {
                                                     </div>
                                                 );
                                             })}
+                                        </div>
+                                    )}
+
+                                    {selectedSubjects.length > 0 && (
+                                        <div className="space-y-4 pt-4 border-t">
+                                            <Label className="text-base font-medium mb-2 block">3. Question Type</Label>
+                                            <RadioGroup 
+                                                value={questionType} 
+                                                onValueChange={handleQuestionTypeChange} 
+                                                className="flex flex-col sm:flex-row gap-3"
+                                            >
+                                                <Label htmlFor="mcq-only" className="flex-1 flex items-center gap-3 border rounded-md p-3 hover:border-primary cursor-pointer transition-colors [&:has([data-state=checked])]:border-primary [&:has([data-state=checked])]:bg-primary/5">
+                                                    <RadioGroupItem value="mcq" id="mcq-only" />
+                                                    <span className="text-sm">MCQ Only</span>
+                                                </Label>
+                                                <Label htmlFor="numerical-only" className="flex-1 flex items-center gap-3 border rounded-md p-3 hover:border-primary cursor-pointer transition-colors [&:has([data-state=checked])]:border-primary [&:has([data-state=checked])]:bg-primary/5">
+                                                    <RadioGroupItem value="numerical" id="numerical-only" />
+                                                    <span className="text-sm">Numerical Only</span>
+                                                </Label>
+                                                <Label htmlFor="both-types" className="flex-1 flex items-center gap-3 border rounded-md p-3 hover:border-primary cursor-pointer transition-colors [&:has([data-state=checked])]:border-primary [&:has([data-state=checked])]:bg-primary/5">
+                                                    <RadioGroupItem value="both" id="both-types" />
+                                                    <span className="text-sm">Both Types</span>
+                                                </Label>
+                                            </RadioGroup>
+
+                                            {questionType === 'both' && (
+                                                <div className="pt-3">
+                                                    <div className="flex items-center justify-between mb-2">
+                                                        <Label className="text-sm">MCQ/Numerical Ratio:</Label>
+                                                        <span className="text-sm font-medium">
+                                                            {ratio}% MCQ / {100 - ratio}% Numerical
+                                                        </span>
+                                                    </div>
+                                                    <div className="px-1">
+                                                        <Slider
+                                                            defaultValue={[50]}
+                                                            value={[ratio]}
+                                                            onValueChange={handleRatioChange}
+                                                            max={100}
+                                                            step={5}
+                                                            className="my-4"
+                                                        />
+                                                        <div className="flex justify-between text-xs text-muted-foreground">
+                                                            <span>0% MCQ</span>
+                                                            <span>50/50</span>
+                                                            <span>100% MCQ</span>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            )}
                                         </div>
                                     )}
                                 </>
@@ -535,6 +622,17 @@ export default function GenerateTestPage() {
                                     onChange={(e) => setTestDuration(Math.max(10, parseInt(e.target.value) || 10))}
                                     className="w-full"
                                     placeholder="e.g., 180"
+                                />
+                            </div>
+                            <div>
+                                <Label htmlFor="test-name" className="text-base font-medium mb-2 block">Test Name (Optional)</Label>
+                                <Input
+                                    id="test-name"
+                                    type="text"
+                                    value={testName}
+                                    onChange={(e) => setTestName(e.target.value)}
+                                    className="w-full"
+                                    placeholder="e.g., My Custom Practice Test"
                                 />
                             </div>
                         </CardContent>

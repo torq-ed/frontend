@@ -22,7 +22,18 @@ export async function POST(request) {
 
     try {
         const config = await request.json(); // Keep the original config object
-        const { selectedExam, testType, selectedPaper, customConfig } = config;
+        const {
+            selectedExam,
+            testType,
+            testName, // Extract the testName from the payload
+            selectedPaper,
+            customConfig
+        } = config;
+
+        // Validate payload... (ensure testName is a string, etc.)
+        if (!selectedExam || !testType || typeof testName !== 'string') {
+            return NextResponse.json({ error: 'Invalid payload' }, { status: 400 });
+        }
 
         if (!selectedExam || !testType) {
             return NextResponse.json({ error: "Missing required configuration fields" }, { status: 400 });
@@ -130,6 +141,7 @@ export async function POST(request) {
             createdBy: userId,
             createdAt: createdAt,
             config: config, // Store the original configuration received
+            testName: testName, // Store the test name
             questionIds: shuffledIds, // Store string IDs
             duration: duration,
             status: 'not_started', // Initial status
