@@ -18,7 +18,7 @@ export async function GET(request) {
 
         // Fetch the 5 most recent activities for the user using the string ID
         const recentActivities = await activityCollection
-            .find({ userId: session.user.id }) // Query using the string ID
+            .find({ userId: session.user.email }) // Use email as userId
             .sort({ timestamp: -1 }) // Sort by timestamp descending
             .limit(3) // Limit to 5 results
             .toArray();
@@ -60,7 +60,7 @@ export async function POST(request) {
         }
 
         const result = await activityCollection.insertOne({
-            userId: session.user.id,
+            userId: session.user.email,
             questionId: questionId, 
             activityType: "questionAttempt", // Add activity type
             questionType,

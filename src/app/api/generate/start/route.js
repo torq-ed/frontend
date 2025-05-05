@@ -3,6 +3,7 @@ import { NextResponse } from 'next/server';
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/app/api/auth/[...nextauth]/options";
 import { v4 as uuidv4 } from 'uuid'; // Import UUID generator
+import { ObjectId } from 'mongodb'; // Import ObjectId
 
 // Helper function to shuffle an array
 function shuffleArray(array) {
@@ -18,8 +19,7 @@ export async function POST(request) {
     if (!session || !session.user || !session.user.id) { // Ensure user ID exists
         return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
-    const userId = session.user.id; // Get user ID
-
+    
     try {
         const config = await request.json(); // Keep the original config object
         const {
@@ -138,7 +138,7 @@ export async function POST(request) {
         // Create the test document
         const testDocument = {
             _id: testId,
-            createdBy: userId,
+            createdBy: session.user.email, // Use email as user ID
             createdAt: createdAt,
             config: config, // Store the original configuration received
             testName: testName, // Store the test name
@@ -163,13 +163,10 @@ export async function POST(request) {
 
         // Add the testId to the user's testIds array
         await usersCollection.updateOne(
-            { _id: userId }, // Find user by their ID (assuming NextAuth adapter uses session.user.id as _id)
-            { $push: { testIds: testId } } // Push the new testId into the array
+            { email: session.user.email }, // Use email to find the user
+            { $addToSet: { testIds: testId } }
         );
-
-        console.log(`Updated user ${userId} with test ID: ${testId}`);
-
-        // Return the ID of the created test session
+        
         return NextResponse.json({
             testId: testId,
             // Optionally return duration and question count for immediate feedback
@@ -179,6 +176,10 @@ export async function POST(request) {
 
     } catch (e) {
         console.error("API Generate Start Error:", e);
+        // Handle potential ObjectId conversion errors
+        if (e.message.includes("Argument passed in must be a string of 12 bytes or a string of 24 hex characters")) {
+             return NextResponse.json({ error: "Invalid user ID format for update", details: e.message }, { status: 400 });
+        }
         return NextResponse.json({ error: "Failed to generate test or update user record", details: e.message }, { status: 500 });
     }
 }
