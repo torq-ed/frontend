@@ -6,7 +6,7 @@ import { useEffect, useState } from "react"; // Import useState
 import { Button } from "@/components/ui/button";
 import Image from "next/image";
 import Link from "next/link"; // Import Link
-import { CheckCircle, XCircle, Clock } from 'lucide-react'; // Import icons
+import { CheckCircle, XCircle, Clock, FileText, ArrowRight, Calendar, PenTool } from 'lucide-react'; // Import icons
 
 // Helper function to format time difference
 const timeAgo = (timestamp) => {
@@ -28,6 +28,8 @@ export default function Dashboard() {
     const router = useRouter();
     const [recentActivity, setRecentActivity] = useState([]); // State for activity
     const [isActivityLoading, setIsActivityLoading] = useState(true); // Loading state
+    const [recentTests, setRecentTests] = useState([]); // State for recent tests
+    const [isTestsLoading, setIsTestsLoading] = useState(true); // Loading state for tests
 
     // Redirect to sign in if not authenticated
     useEffect(() => {
@@ -55,6 +57,24 @@ export default function Dashboard() {
                     setRecentActivity([]); // Set to empty array on error
                 })
                 .finally(() => setIsActivityLoading(false));
+                
+            // Fetch recent tests
+            setIsTestsLoading(true);
+            fetch('/api/tests/recent')
+                .then(res => res.json())
+                .then(data => {
+                    if (Array.isArray(data)) {
+                        setRecentTests(data);
+                    } else {
+                        console.error("Fetched tests data is not an array:", data);
+                        setRecentTests([]); // Set to empty array on error
+                    }
+                })
+                .catch(error => {
+                    console.error("Error fetching recent tests:", error);
+                    setRecentTests([]); // Set to empty array on error
+                })
+                .finally(() => setIsTestsLoading(false));
         }
     }, [status]); // Re-run when authentication status changes
 
@@ -65,6 +85,20 @@ export default function Dashboard() {
             </div>
         );
     }
+
+    // Function to get test status badge
+    const getTestStatusBadge = (status) => {
+        switch (status) {
+            case 'completed':
+                return <span className="bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-100 px-2 py-0.5 rounded text-xs">Completed</span>;
+            case 'in_progress':
+                return <span className="bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-100 px-2 py-0.5 rounded text-xs">In Progress</span>;
+            case 'not_started':
+                return <span className="bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-100 px-2 py-0.5 rounded text-xs">Not Started</span>;
+            default:
+                return null;
+        }
+    };
 
     return (
         <main className="min-h-screen pt-16 sm:pt-20 md:pt-24 px-3 sm:px-6 lg:px-8">
@@ -103,28 +137,57 @@ export default function Dashboard() {
 
                 {/* Dashboard Content */}
                 <div className="grid grid-cols-1 gap-4 sm:gap-6">
-                    {/* Top Row: Stats and Activity */}
+                    {/* Top Row: Recent Tests and Activity */}
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4 sm:gap-6">
-                        {/* Stats Card - Full width on mobile, 1/3 on desktop */}
+                        {/* Recent Tests Card - Full width on mobile, 1/3 on desktop */}
                         <div className="bg-card rounded-lg shadow-md p-4 sm:p-6 order-1 md:order-2">
-                            <h2 className="text-lg sm:text-xl font-semibold mb-3 sm:mb-4">Your Stats</h2>
+                            <h2 className="text-lg sm:text-xl font-semibold mb-3 sm:mb-4 flex items-center">
+                                <FileText className="h-5 w-5 mr-2 text-primary" /> Recent Tests
+                            </h2>
                             <div className="space-y-3 sm:space-y-4">
-                                <div className="flex justify-between items-center text-sm sm:text-base">
-                                    <span>Total Sessions</span>
-                                    <span className="font-medium">0</span>
-                                </div>
-                                <div className="flex justify-between items-center text-sm sm:text-base">
-                                    <span>Completed Tasks</span>
-                                    <span className="font-medium">0</span>
-                                </div>
-                                <div className="flex justify-between items-center text-sm sm:text-base">
-                                    <span>Achievement Points</span>
-                                    <span className="font-medium">0</span>
-                                </div>
+                                {isTestsLoading ? (
+                                    <p className="text-sm sm:text-base text-foreground/70">Loading tests...</p>
+                                ) : recentTests.length > 0 ? (
+                                    recentTests.map(test => (
+                                        <div key={test._id} className="border border-border rounded-md p-3 hover:border-primary/50 hover:bg-accent/30 transition-all">
+                                            <Link href={test.status === 'completed' ? `/results/${test._id}` : `/test/${test._id}`}>
+                                                <div className="flex flex-col gap-2">
+                                                    <div className="flex justify-between items-start">
+                                                        <h3 className="font-medium text-sm truncate">
+                                                            {test.config?.testName || test.config?.customConfig?.testName || `Test: ${test._id.substring(0, 8)}`}
+                                                        </h3>
+                                                        {getTestStatusBadge(test.status)}
+                                                    </div>
+                                                    <div className="flex items-center gap-2 text-xs text-foreground/70">
+                                                        <Calendar className="h-3 w-3" />
+                                                        <span>{new Date(test.createdAt).toLocaleDateString()}</span>
+                                                        <span>•</span>
+                                                        <span>{test.questionIds?.length || 0} questions</span>
+                                                    </div>
+                                                    <div className="flex justify-end">
+                                                        <span className="text-xs text-primary flex items-center">
+                                                            {test.status === 'completed' ? 'View Results' : 'Continue Test'} <ArrowRight className="h-3 w-3 ml-1" />
+                                                        </span>
+                                                    </div>
+                                                </div>
+                                            </Link>
+                                        </div>
+                                    ))
+                                ) : (
+                                    <div className="text-center py-3">
+                                        <PenTool className="h-8 w-8 mx-auto text-primary/50 mb-2" />
+                                        <p className="text-sm text-foreground/70">No tests yet. Generate your first test!</p>
+                                        <Link href="/generate">
+                                            <Button variant="outline" size="sm" className="mt-2">
+                                                Generate Test
+                                            </Button>
+                                        </Link>
+                                    </div>
+                                )}
                             </div>
                         </div>
 
-                        {/* Activity Summary - Updated */}
+                        {/* Activity Summary */}
                         <div className="bg-card rounded-lg shadow-md p-4 sm:p-6 col-span-1 md:col-span-2 order-2 md:order-1">
                             <h2 className="text-lg sm:text-xl font-semibold mb-3 sm:mb-4">Recent Activity</h2>
                             <div className="space-y-3 sm:space-y-4">
