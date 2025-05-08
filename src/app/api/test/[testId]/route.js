@@ -9,7 +9,7 @@ export async function GET(request, { params }) {
         return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
     const userId = session.user.id;
-    const { testId } = params;
+    const { testId } = await params;
 
     if (!testId) {
         return NextResponse.json({ error: "Missing test ID" }, { status: 400 });
